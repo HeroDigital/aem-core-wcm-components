@@ -29,11 +29,10 @@ import java.util.List;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 
-import static org.junit.Assert.fail;
-
 public class AbstractModelTest {
 
-    public void testDefaultBehaviour(String[] packages) throws Exception {
+    @SuppressWarnings("squid:S1181")
+    public void testDefaultBehaviour(String[] packages) throws IllegalAccessException {
         List<Class> models = new ArrayList<>();
         for (String p : packages) {
             models.addAll(getClasses(p));
@@ -84,36 +83,41 @@ public class AbstractModelTest {
                 Method[] methods = clazz.getMethods();
                 for (Method m : methods) {
                     if (!m.isDefault()) {
-                        errors.append("Method ").append(m.toString()).append(" was not marked as default.\n");
+                        errors.append("Method ")
+                                .append(m.toString())
+                                .append(" was not marked as default in class ")
+                                .append(clazz.getName())
+                                .append(" .\n");
                     }
                     Throwable t = null;
+                    Object ret = null;
                     try {
-                        m.invoke(instance);
+                        if (m.getParameterCount() > 0) {
+                            ret = m.invoke(instance, new Object[m.getParameterCount()]);
+                        } else {
+                            ret = m.invoke(instance);
+                        }
                     } catch (InvocationTargetException e) {
                         t = e.getCause();
                     }
-                    if (t == null || !(t instanceof UnsupportedOperationException)) {
+                    if (t != null) {
                         errors.append("Expected method ")
                                 .append(m.toString())
-                                .append("in class ")
+                                .append(" in class ")
                                 .append(clazz.getName())
-                                .append(" to throw an ")
-                                .append(UnsupportedOperationException.class.getName())
-                                .append(".\n");
+                                .append(" to not throw an exception.\n");
                     }
                 }
             }
         }
         if (errors.length() > 0) {
             errors.insert(0, "\n");
-            fail(errors.toString());
+            throw new AssertionError(errors.toString());
         }
     }
 
     private static List<Class> getClasses(String packageName) {
-        List<Class> classes = new ArrayList<>();
         Reflections reflections = new Reflections(packageName,  new SubTypesScanner(false));
-        reflections.getSubTypesOf(Object.class).forEach(clazz -> classes.add(clazz));
-        return classes;
+        return new ArrayList<>(reflections.getSubTypesOf(Object.class));
     }
 }

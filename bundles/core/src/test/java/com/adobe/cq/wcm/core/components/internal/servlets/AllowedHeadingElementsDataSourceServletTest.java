@@ -15,65 +15,52 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.servlets;
 
-import org.apache.sling.api.resource.ResourceResolver;
-import org.apache.sling.api.resource.ValueMap;
-import org.jetbrains.annotations.Nullable;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.adobe.cq.wcm.core.components.context.CoreComponentTestContext;
+import com.adobe.granite.ui.components.Value;
 import com.adobe.granite.ui.components.ds.DataSource;
-import com.day.cq.wcm.api.policies.ContentPolicy;
-import com.day.cq.wcm.api.policies.ContentPolicyManager;
-import com.google.common.base.Function;
-import io.wcm.testing.mock.aem.junit.AemContext;
+import io.wcm.testing.mock.aem.junit5.AemContext;
+import io.wcm.testing.mock.aem.junit5.AemContextExtension;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(MockitoJUnitRunner.class)
-public class AllowedHeadingElementsDataSourceServletTest {
+@ExtendWith(AemContextExtension.class)
+class AllowedHeadingElementsDataSourceServletTest {
 
-    @Rule
-    public AemContext context = CoreComponentTestContext.createContext(null, "/apps");
+    private static final String TEST_BASE = "/title/datasource/allowedheadingelements";
+    private static final String TEST_PAGE = "/content/title";
+    private static final String TITLE_RESOURCE_JCR_TITLE_TYPE = TEST_PAGE + "/jcr:content/par/title-jcr-title-type";
 
-    @Mock
-    private ContentPolicyManager contentPolicyManager;
-
-    @Mock
-    private ContentPolicy contentPolicy;
-
-    @Mock
-    private ValueMap properties;
+    private final AemContext context = CoreComponentTestContext.newAemContext();
 
     private AllowedHeadingElementsDataSourceServlet dataSourceServlet;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    void setUp() {
+        context.load().json(TEST_BASE + CoreComponentTestContext.TEST_CONTENT_JSON, TEST_PAGE);
         dataSourceServlet = new AllowedHeadingElementsDataSourceServlet();
-        registerContentPolicyManager();
-        when(contentPolicyManager.getPolicy(context.currentResource())).thenReturn(contentPolicy);
-        when(contentPolicy.getProperties()).thenReturn(properties);
+        context.request().setAttribute(Value.CONTENTPATH_ATTRIBUTE,TITLE_RESOURCE_JCR_TITLE_TYPE);
     }
 
     @Test
-    public void testDataSource() throws Exception {
-        when(properties.get(AllowedHeadingElementsDataSourceServlet.PN_ALLOWED_HEADING_ELEMENTS, String[].class))
-                .thenReturn(new String[]{"h3", "h4"});
-        when(properties.get(AllowedHeadingElementsDataSourceServlet.PN_DEFAULT_HEADING_ELEMENT,
-                properties.get(AllowedHeadingElementsDataSourceServlet.PN_DEFAULT_TYPE, String.class))).thenReturn("h3");
+    void testDataSource() throws Exception {
+        context.contentPolicyMapping("core/wcm/components/title/v1/title",
+                "type", "h3",
+                AllowedHeadingElementsDataSourceServlet.PN_ALLOWED_TYPES, new String[]{"h3", "h4"});
         dataSourceServlet.doGet(context.request(), context.response());
         DataSource dataSource = (DataSource) context.request().getAttribute(DataSource.class.getName());
         assertNotNull(dataSource);
         dataSource.iterator().forEachRemaining(resource -> {
-            assertTrue("Expected class", TextValueDataResourceSource.class.isAssignableFrom(resource.getClass()));
+            assertTrue(TextValueDataResourceSource.class.isAssignableFrom(resource.getClass()), "Expected class");
             TextValueDataResourceSource textValueDataResourceSource = (TextValueDataResourceSource) resource;
-            assertTrue("Expected type in (h3, h4)", textValueDataResourceSource.getText().matches("h[3|4]"));
-            assertTrue("Expected value in (h3, h4)", textValueDataResourceSource.getValue().matches("h[3|4]"));
+            assertTrue(textValueDataResourceSource.getText().matches("h[3|4]"), "Expected type in (h3, h4)");
+            assertTrue(textValueDataResourceSource.getValue().matches("h[3|4]"), "Expected value in (h3, h4)");
             if (textValueDataResourceSource.getValue().equals("h3")) {
                 assertTrue(textValueDataResourceSource.getSelected());
             } else {
@@ -83,27 +70,17 @@ public class AllowedHeadingElementsDataSourceServletTest {
     }
 
     @Test
-    public void testDataSourceWithInvalidValues() throws Exception {
-        when(properties.get(AllowedHeadingElementsDataSourceServlet.PN_ALLOWED_HEADING_ELEMENTS, String[].class))
-                .thenReturn(new String[]{"foo", "h10"});
+    void testDataSourceWithInvalidValues() throws Exception {
+        context.contentPolicyMapping("core/wcm/components/title/v1/title",
+                AllowedHeadingElementsDataSourceServlet.PN_ALLOWED_TYPES, new String[]{"foo", "h10"});
         dataSourceServlet.doGet(context.request(), context.response());
         DataSource dataSource = (DataSource) context.request().getAttribute(DataSource.class.getName());
         assertNotNull(dataSource);
         dataSource.iterator().forEachRemaining(resource -> {
-            assertTrue("Expected class", TextValueDataResourceSource.class.isAssignableFrom(resource.getClass()));
+            assertTrue(TextValueDataResourceSource.class.isAssignableFrom(resource.getClass()), "Expected class");
             TextValueDataResourceSource textValueDataResourceSource = (TextValueDataResourceSource) resource;
-            assertNull("Expected null type", textValueDataResourceSource.getText());
-            assertTrue("Expected value in (foo, h10)", textValueDataResourceSource.getValue().matches("foo|h10"));
-        });
-    }
-
-    private void registerContentPolicyManager() {
-        context.registerAdapter(ResourceResolver.class, ContentPolicyManager.class, new Function<ResourceResolver, ContentPolicyManager>() {
-            @Nullable
-            @Override
-            public ContentPolicyManager apply(@Nullable ResourceResolver input) {
-                return contentPolicyManager;
-            }
+            assertNull(textValueDataResourceSource.getText(), "Expected null type");
+            assertTrue(textValueDataResourceSource.getValue().matches("foo|h10"), "Expected value in (foo, h10)");
         });
     }
 }

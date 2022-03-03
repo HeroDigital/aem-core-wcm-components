@@ -15,22 +15,31 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v1;
 
+import java.util.Optional;
+
+import javax.annotation.PostConstruct;
 import javax.inject.Named;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.sling.api.SlingHttpServletRequest;
+import org.apache.sling.api.resource.Resource;
 import org.apache.sling.models.annotations.Exporter;
 import org.apache.sling.models.annotations.Model;
+import org.apache.sling.models.annotations.injectorspecific.InjectionStrategy;
 import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
-import com.adobe.cq.wcm.core.components.internal.Utils;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.Button;
+import com.adobe.cq.wcm.core.components.models.datalayer.ComponentData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 import com.day.cq.commons.jcr.JcrConstants;
-import com.day.cq.wcm.api.Page;
 import com.day.cq.wcm.api.PageManager;
 
 @Model(
@@ -42,30 +51,40 @@ import com.day.cq.wcm.api.PageManager;
     name = ExporterConstants.SLING_MODEL_EXPORTER_NAME,
     extensions = ExporterConstants.SLING_MODEL_EXTENSION
 )
-public class ButtonImpl implements Button {
+public class ButtonImpl extends AbstractComponentImpl implements Button {
 
     public static final String RESOURCE_TYPE = "core/wcm/components/button/v1/button";
-
-    private String linkURL;
 
     @Self
     private SlingHttpServletRequest request;
 
     @ScriptVariable
+    private Resource resource;
+
+    @ScriptVariable
     private PageManager pageManager;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
     @Named(JcrConstants.JCR_TITLE)
+    @Nullable
     private String text;
 
-    @ValueMapValue(optional = true)
-    private String link;
-
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String icon;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     protected String accessibilityLabel;
+
+    @Self
+    private LinkHandler linkHandler;
+    protected Optional<Link> link;
+
+    @PostConstruct
+    private void initModel() {
+        link = linkHandler.getLink(resource, "link");
+    }
 
     @Override
     public String getText() {
@@ -74,23 +93,17 @@ public class ButtonImpl implements Button {
 
     @Override
     public String getLink() {
-        if (linkURL == null) {
-            Page targetPage = pageManager.getPage(link);
-            if (targetPage != null) {
-                linkURL = Utils.getURL(request, targetPage);
-            } else {
-                linkURL = link;
-            }
-        }
-        return linkURL;
+        return link.map(Link::getURL).orElse(null);
     }
 
     @Override
+    @Nullable
     public String getIcon() {
         return icon;
     }
 
     @Override
+    @Nullable
     public String getAccessibilityLabel() {
         return accessibilityLabel;
     }
@@ -99,5 +112,14 @@ public class ButtonImpl implements Button {
     @Override
     public String getExportedType() {
         return request.getResource().getResourceType();
+    }
+
+    @Override
+    @NotNull
+    protected ComponentData getComponentData() {
+        return DataLayerBuilder.extending(super.getComponentData()).asComponent()
+            .withTitle(this::getText)
+            .withLinkUrl(() ->link.map(Link::getMappedURL).orElse(null))
+            .build();
     }
 }

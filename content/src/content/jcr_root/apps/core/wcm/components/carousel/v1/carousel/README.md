@@ -38,6 +38,7 @@ The following configuration properties are used:
 1. `./autoplay` - defines whether or not the carousel should automatically transition between slides.
 2. `./delay` - defines the delay (in milliseconds) when automatically transitioning between slides.
 3. `./autopauseDisabled` - defines whether or not automatic pause when hovering the carousel is disabled.
+4. `./controlsPrepended` - defines whether the carousel controls should be arranged before the carousel items or not.
 
 It is also possible to define the allowed components for the Carousel.
 
@@ -47,11 +48,12 @@ The following properties are written to JCR for this Carousel component and are 
 1. `./autoplay` - defines whether or not the carousel should automatically transition between slides.
 2. `./delay` - defines the delay (in milliseconds) when automatically transitioning between slides.
 3. `./autopauseDisabled` - defines whether or not automatic pause when hovering the carousel is disabled.
-4. `./accessibilityLabel` - defines an accessibility label for the carousel.
+4. `./id` - defines the component HTML ID attribute.
+5. `./accessibilityLabel` - defines an accessibility label for the carousel.
 
 The edit dialog also allows editing of Carousel items (adding, removing, naming, re-ordering).
 
-Note: automatic transitioning only works on a publish instance or on an author instance with the URL parameter `wcmmode=disabled`.
+Note: on author instances automatic transitioning only works with the `wcmmode=disabled` URL parameter.
 
 ## Client Libraries
 The component provides a `core.wcm.components.carousel.v1` client library category that contains a recommended base
@@ -99,7 +101,7 @@ data-cmp-hook-carousel="indicator"
 ### Enabling Carousel Editing Functionality
 The following properties and child nodes are required in the proxy component to enable full editing functionality for the Carousel:
 
-1. `./cq:isContainer` - set to `true`, marks the Carousel as a container component
+1. `./cq:isContainer` - set to `{Boolean}true`, marks the Carousel as a container component
 2. `./cq:editConfig` - `afterchilddelete`, `afterchildinsert` and `afterchildmove` listeners should be provided via
 the edit configuration of the proxy. `_cq_editConfig.xml` contains the recommended actions and can be copied to the proxy component.
 

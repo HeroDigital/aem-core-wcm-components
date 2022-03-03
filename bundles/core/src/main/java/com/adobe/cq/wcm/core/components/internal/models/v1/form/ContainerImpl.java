@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletException;
 
@@ -32,12 +33,14 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.models.annotations.Default;
 import org.apache.sling.models.annotations.Exporter;
 import org.apache.sling.models.annotations.Model;
+import org.apache.sling.models.annotations.injectorspecific.InjectionStrategy;
 import org.apache.sling.models.annotations.injectorspecific.OSGiService;
 import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.apache.sling.models.factory.ModelFactory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,18 +48,20 @@ import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ContainerExporter;
 import com.adobe.cq.export.json.ExporterConstants;
 import com.adobe.cq.export.json.SlingModelFilter;
-import com.adobe.cq.wcm.core.components.internal.Utils;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
 import com.adobe.cq.wcm.core.components.internal.form.FormConstants;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.form.Container;
 import com.day.cq.wcm.api.Page;
 import com.day.cq.wcm.foundation.forms.FormStructureHelper;
 import com.day.cq.wcm.foundation.forms.FormStructureHelperFactory;
 import com.day.cq.wcm.foundation.forms.FormsHelper;
+import com.day.cq.wcm.foundation.forms.ValidationInfo;
 
 import static com.day.cq.wcm.foundation.forms.FormsConstants.SCRIPT_FORM_SERVER_VALIDATION;
 
 @Model(adaptables = SlingHttpServletRequest.class,
-       adapters = {Container.class, ContainerExporter.class},
+       adapters = {Container.class, ContainerExporter.class, ComponentExporter.class},
        resourceType = {FormConstants.RT_CORE_FORM_CONTAINER_V1, FormConstants.RT_CORE_FORM_CONTAINER_V2})
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
 public class ContainerImpl implements Container {
@@ -87,20 +92,26 @@ public class ContainerImpl implements Container {
     @Default(values = "")
     private String id;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String actionType;
 
     @ValueMapValue(name = ResourceResolver.PROPERTY_RESOURCE_TYPE)
     @Default(values = "")
     private String dropAreaResourceType;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String redirect;
+    
+    @Self
+    private LinkHandler linkHandler;
 
     private String name;
     private String action;
     private Map<String, ? extends ComponentExporter> childrenModels;
     private String[] exportedItemsOrder;
+    private String[] errorMessages;
 
     @ScriptVariable
     private Resource resource;
@@ -118,12 +129,14 @@ public class ContainerImpl implements Container {
     private void initModel() {
         FormStructureHelper formStructureHelper = formStructureHelperFactory.getFormStructureHelper(resource);
         request.setAttribute(FormsHelper.REQ_ATTR_FORM_STRUCTURE_HELPER, formStructureHelper);
-        this.action = Utils.getURL(request, currentPage);
+        this.action = linkHandler.getLink(currentPage).map(Link::getURL).orElse(null);
+        String formId = FormsHelper.getFormId(request);
         if (StringUtils.isBlank(id)) {
-            id = FormsHelper.getFormId(request);
+            id = formId;
         }
+        request.setAttribute(FormsHelper.REQ_ATTR_FORMID, getId());
         this.name = id;
-        this.dropAreaResourceType += "/new";
+        this.dropAreaResourceType = "wcm/foundation/components/responsivegrid/new";
         if (redirect != null) {
             String contextPath = request.getContextPath();
             if (StringUtils.isNotBlank(contextPath) && redirect.startsWith("/")) {
@@ -134,18 +147,26 @@ public class ContainerImpl implements Container {
         if (!StringUtils.equals(request.getRequestPathInfo().getExtension(), ExporterConstants.SLING_MODEL_EXTENSION)) {
             runActionTypeInit(formStructureHelper);
         }
+        final ValidationInfo info = ValidationInfo.getValidationInfo(request);
+        if (info != null) {
+            this.errorMessages = info.getErrorMessages(null);
+        }
     }
 
     private void runActionTypeInit(FormStructureHelper formStructureHelper) {
-        final RequestPathInfo requestPathInfo = request.getRequestPathInfo();
-        if (response != null && !StringUtils.equals(requestPathInfo.getSelectorString(),
-                SCRIPT_FORM_SERVER_VALIDATION) && StringUtils.isNotEmpty(actionType)) {
-            final Resource formStart = formStructureHelper.getFormResource(request.getResource());
-            try {
-                FormsHelper.runAction(actionType, INIT_SCRIPT, formStart, request, response);
-            } catch (IOException | ServletException e) {
-                LOGGER.error("Unable to initialise form " + resource.getPath(), e);
+        if ((request.getAttribute(FormsHelper.REQ_ATTR_IS_INIT) == null)) {
+            request.setAttribute(FormsHelper.REQ_ATTR_IS_INIT, "true");
+            final RequestPathInfo requestPathInfo = request.getRequestPathInfo();
+            if (response != null && !StringUtils.equals(requestPathInfo.getSelectorString(),
+                    SCRIPT_FORM_SERVER_VALIDATION) && StringUtils.isNotEmpty(actionType)) {
+                final Resource formStart = formStructureHelper.getFormResource(request.getResource());
+                try {
+                    FormsHelper.runAction(actionType, INIT_SCRIPT, formStart, request, response);
+                } catch (IOException | ServletException e) {
+                    LOGGER.error("Unable to initialise form " + resource.getPath(), e);
+                }
             }
+            request.removeAttribute(FormsHelper.REQ_ATTR_IS_INIT);
         }
     }
 
@@ -182,6 +203,15 @@ public class ContainerImpl implements Container {
     @Override
     public String getRedirect() {
         return redirect;
+    }
+
+    @Override
+    @Nullable
+    public String[] getErrorMessages() {
+        if (errorMessages != null && errorMessages.length > 0) {
+            return Arrays.copyOf(errorMessages,errorMessages.length);
+        }
+        return new String[]{};
     }
 
     @NotNull

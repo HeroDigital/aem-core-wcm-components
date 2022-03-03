@@ -16,6 +16,9 @@
 (function() {
     "use strict";
 
+    var dataLayerEnabled;
+    var dataLayer;
+
     var NS = "cmp";
     var IS = "carousel";
 
@@ -30,7 +33,7 @@
     };
 
     var selectors = {
-        self: "[data-" +  NS + '-is="' + IS + '"]'
+        self: "[data-" + NS + '-is="' + IS + '"]'
     };
 
     var properties = {
@@ -121,6 +124,7 @@
                 refreshPlayPauseActions();
             }
 
+            // TODO: This section is only relevant in edit mode and should move to the editor clientLib
             if (window.Granite && window.Granite.author && window.Granite.author.MessageChannel) {
                 /*
                  * Editor message handling:
@@ -128,7 +132,10 @@
                  * - check that the message data panel container type is correct and that the id (path) matches this specific Carousel component
                  * - if so, route the "navigate" operation to enact a navigation of the Carousel based on index data
                  */
-                new window.Granite.author.MessageChannel("cqauthor", window).subscribeRequestMessage("cmp.panelcontainer", function(message) {
+                window.CQ = window.CQ || {};
+                window.CQ.CoreComponents = window.CQ.CoreComponents || {};
+                window.CQ.CoreComponents.MESSAGE_CHANNEL = window.CQ.CoreComponents.MESSAGE_CHANNEL || new window.Granite.author.MessageChannel("cqauthor", window);
+                window.CQ.CoreComponents.MESSAGE_CHANNEL.subscribeRequestMessage("cmp.panelcontainer", function(message) {
                     if (message.data && message.data.type === "cmp-carousel" && message.data.id === that._elements.self.dataset["cmpPanelcontainerId"]) {
                         if (message.data.operation === "navigate") {
                             navigate(message.data.index);
@@ -207,13 +214,31 @@
         function bindEvents() {
             if (that._elements["previous"]) {
                 that._elements["previous"].addEventListener("click", function() {
-                    navigate(getPreviousIndex());
+                    var index = getPreviousIndex();
+                    navigate(index);
+                    if (dataLayerEnabled) {
+                        dataLayer.push({
+                            event: "cmp:show",
+                            eventInfo: {
+                                path: "component." + getDataLayerId(that._elements.item[index])
+                            }
+                        });
+                    }
                 });
             }
 
             if (that._elements["next"]) {
                 that._elements["next"].addEventListener("click", function() {
-                    navigate(getNextIndex());
+                    var index = getNextIndex();
+                    navigate(index);
+                    if (dataLayerEnabled) {
+                        dataLayer.push({
+                            event: "cmp:show",
+                            eventInfo: {
+                                path: "component." + getDataLayerId(that._elements.item[index])
+                            }
+                        });
+                    }
                 });
             }
 
@@ -245,6 +270,15 @@
             if (!that._properties.autopauseDisabled) {
                 that._elements.self.addEventListener("mouseenter", onMouseEnter);
                 that._elements.self.addEventListener("mouseleave", onMouseLeave);
+            }
+
+            // for accessibility we pause animation when a element get focused
+            var items = that._elements["item"];
+            if (items) {
+                for (var j = 0; j < items.length; j++) {
+                    items[j].addEventListener("focusin", onMouseEnter);
+                    items[j].addEventListener("focusout", onMouseLeave);
+                }
             }
         }
 
@@ -467,6 +501,19 @@
             that._active = index;
             refreshActive();
 
+            if (dataLayerEnabled) {
+                var carouselId = that._elements.self.id;
+                var activeItem = getDataLayerId(that._elements.item[index]);
+                var updatePayload = { component: {} };
+                updatePayload.component[carouselId] = { shownItems: [activeItem] };
+
+                var removePayload = { component: {} };
+                removePayload.component[carouselId] = { shownItems: undefined };
+
+                dataLayer.push(removePayload);
+                dataLayer.push(updatePayload);
+            }
+
             // reset the autoplay transition interval following navigation, if not already hovering the carousel
             if (that._elements.self.parentElement) {
                 if (that._elements.self.parentElement.querySelector(":hover") !== that._elements.self) {
@@ -484,6 +531,15 @@
         function navigateAndFocusIndicator(index) {
             navigate(index);
             focusWithoutScroll(that._elements["indicator"][index]);
+
+            if (dataLayerEnabled) {
+                dataLayer.push({
+                    event: "cmp:show",
+                    eventInfo: {
+                        path: "component." + getDataLayerId(that._elements.item[index])
+                    }
+                });
+            }
         }
 
         /**
@@ -574,19 +630,37 @@
     }
 
     /**
+     * Parses the dataLayer string and returns the ID
+     *
+     * @private
+     * @param {HTMLElement} item the accordion item
+     * @returns {String} dataLayerId or undefined
+     */
+    function getDataLayerId(item) {
+        if (item && item.dataset.cmpDataLayer) {
+            return Object.keys(JSON.parse(item.dataset.cmpDataLayer))[0];
+        } else {
+            return item.id;
+        }
+    }
+
+    /**
      * Document ready handler and DOM mutation observers. Initializes Carousel components as necessary.
      *
      * @private
      */
     function onDocumentReady() {
+        dataLayerEnabled = document.body.hasAttribute("data-cmp-data-layer-enabled");
+        dataLayer = (dataLayerEnabled) ? window.adobeDataLayer = window.adobeDataLayer || [] : undefined;
+
         var elements = document.querySelectorAll(selectors.self);
         for (var i = 0; i < elements.length; i++) {
             new Carousel({ element: elements[i], options: readData(elements[i]) });
         }
 
         var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
-        var body             = document.querySelector("body");
-        var observer         = new MutationObserver(function(mutations) {
+        var body = document.querySelector("body");
+        var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 // needed for IE
                 var nodesArray = [].slice.call(mutation.addedNodes);

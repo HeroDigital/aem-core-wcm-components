@@ -15,7 +15,7 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.adobe.cq.wcm.core.components.testing.AbstractModelTest;
 
@@ -24,7 +24,8 @@ public class ModelsCommonsTest extends AbstractModelTest {
     @Test
     public void testDefaultBehaviour() throws Exception {
         testDefaultBehaviour(new String[] {
-                "com.adobe.cq.wcm.core.components.models"
+                "com.adobe.cq.wcm.core.components.models",
+                "com.adobe.cq.wcm.core.components.commons.link"
        });
     }
 }

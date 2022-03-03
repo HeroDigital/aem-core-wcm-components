@@ -29,7 +29,10 @@ import com.adobe.cq.wcm.core.components.models.ListItem;
 import io.wcm.testing.mock.aem.junit5.AemContext;
 import io.wcm.testing.mock.aem.junit5.AemContextExtension;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(AemContextExtension.class)
 class AccordionImplTest {
@@ -40,6 +43,8 @@ class AccordionImplTest {
     private static final String ACCORDION_1 = TEST_ROOT_PAGE + TEST_ROOT_PAGE_GRID + "/accordion-1";
     private static final String ACCORDION_2 = TEST_ROOT_PAGE + TEST_ROOT_PAGE_GRID + "/accordion-2";
     private static final String ACCORDION_3 = TEST_ROOT_PAGE + TEST_ROOT_PAGE_GRID + "/accordion-3";
+    private static final String ACCORDION_EMPTY = TEST_ROOT_PAGE + TEST_ROOT_PAGE_GRID + "/accordion-empty";
+
     private static final String TEST_APPS_ROOT = "/apps/core/wcm/components";
 
     private final AemContext context = CoreComponentTestContext.newAemContext();
@@ -52,9 +57,7 @@ class AccordionImplTest {
 
     @Test
     void testEmptyAccordion() {
-        Accordion accordion = new AccordionImpl();
-        List<ListItem> items = accordion.getItems();
-        assertEquals(0, items.size());
+        assertEquals(0, getAccordionUnderTest(ACCORDION_EMPTY).getItems().size());
     }
 
     @Test
@@ -90,6 +93,7 @@ class AccordionImplTest {
     }
 
     private Accordion getAccordionUnderTest(String resourcePath, Object... properties) {
+        Utils.enableDataLayer(context, true);
         Resource resource = context.currentResource(resourcePath);
         if (resource != null && properties != null) {
             context.contentPolicyMapping(resource.getResourceType(), properties);
@@ -98,13 +102,11 @@ class AccordionImplTest {
     }
 
     private void verifyAccordionItems(Object[][] expectedItems, List<ListItem> items) {
-        assertEquals("The accordion contains a different number of items than expected.", expectedItems.length, items.size());
+        assertEquals(expectedItems.length, items.size(), "The accordion contains a different number of items than expected.");
         int index = 0;
         for (ListItem item : items) {
-            assertEquals("The accordion item's name is not what was expected.",
-                    expectedItems[index][0], item.getName());
-            assertEquals("The accordion item's title is not what was expected: " + item.getTitle(),
-                    expectedItems[index][1], item.getTitle());
+            assertEquals(expectedItems[index][0], item.getName(), "The accordion item's name is not what was expected.");
+            assertEquals(expectedItems[index][1], item.getTitle(), "The accordion item's title is not what was expected: " + item.getTitle());
             index++;
         }
     }

@@ -23,6 +23,7 @@ Tabs component written in HTL.
 * Allowed components can be configured through policy configuration.
 * Navigation to tab panels via tabs.
 * Editing features for tab panels (adding, removing, editing, re-ordering).
+* Allows deep linking into a specific tab by passing the tab id as the URL fragment
 
 ### Use Object
 The Tabs component uses the `com.adobe.cq.wcm.core.components.models.Tabs` Sling model as its Use-object.
@@ -34,7 +35,8 @@ The component policy dialog allows definition of allowed components for the Tabs
 The following properties are written to JCR for this Tabs component and are expected to be available as `Resource` properties:
 
 1. `./activeItem` - defines the name of the item that is active by default.
-2. `./accessibilityLabel` - defines an accessibility label for the tabs.
+2. `./id` - defines the component HTML ID attribute.
+3. `./accessibilityLabel` - defines an accessibility label for the tabs.
 
 The edit dialog also allows editing of Tabs items (adding, removing, naming, re-ordering).
 
@@ -65,7 +67,7 @@ data-cmp-hook-tabs="tabpanel"
 ### Enabling Tabs Editing Functionality
 The following properties and child nodes are required in the proxy component to enable full editing functionality for the Tabs:
 
-1. `./cq:isContainer` - set to `true`, marks the Tabs as a container component
+1. `./cq:isContainer` - set to `{Boolean}true`, marks the Tabs as a container component
 2. `./cq:editConfig` - `afterchilddelete`, `afterchildinsert` and `afterchildmove` listeners should be provided via
 the edit configuration of the proxy. `_cq_editConfig.xml` contains the recommended actions and can be copied to the proxy component.
 

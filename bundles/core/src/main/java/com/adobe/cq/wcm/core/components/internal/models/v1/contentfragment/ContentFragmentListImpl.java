@@ -15,13 +15,7 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v1.contentfragment;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -39,12 +33,14 @@ import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.annotations.injectorspecific.SlingObject;
 import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.adobe.cq.dam.cfm.converter.ContentTypeConverter;
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import com.adobe.cq.wcm.core.components.models.contentfragment.ContentFragmentList;
 import com.adobe.cq.wcm.core.components.models.contentfragment.DAMContentFragment;
 import com.day.cq.commons.jcr.JcrConstants;
@@ -55,23 +51,26 @@ import com.day.cq.search.QueryBuilder;
 import com.day.cq.search.result.SearchResult;
 import com.day.cq.tagging.TagConstants;
 
+import static com.day.cq.dam.api.DamConstants.NT_DAM_ASSET;
+
 @Model(
         adaptables = SlingHttpServletRequest.class,
         adapters = {
                 ContentFragmentList.class,
                 ComponentExporter.class
         },
-        resourceType = ContentFragmentListImpl.RESOURCE_TYPE
+        resourceType = {ContentFragmentListImpl.RESOURCE_TYPE_V1,ContentFragmentListImpl.RESOURCE_TYPE_V2}
 )
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class ContentFragmentListImpl implements ContentFragmentList {
+public class ContentFragmentListImpl extends AbstractComponentImpl implements ContentFragmentList {
 
     private static final Logger LOG = LoggerFactory.getLogger(ContentFragmentListImpl.class);
 
-    public static final String RESOURCE_TYPE = "core/wcm/components/contentfragmentlist/v1/contentfragmentlist";
+    public static final String RESOURCE_TYPE_V1 = "core/wcm/components/contentfragmentlist/v1/contentfragmentlist";
+    public static final String RESOURCE_TYPE_V2 = "core/wcm/components/contentfragmentlist/v2/contentfragmentlist";
 
     public static final String DEFAULT_DAM_PARENT_PATH = "/content/dam";
-    
+
     public static final int DEFAULT_MAX_ITEMS = -1;
 
     @Self(injectionStrategy = InjectionStrategy.REQUIRED)
@@ -84,15 +83,19 @@ public class ContentFragmentListImpl implements ContentFragmentList {
     private ResourceResolver resourceResolver;
 
     @ValueMapValue(name = ContentFragmentList.PN_MODEL_PATH, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String modelPath;
 
     @ValueMapValue(name = ContentFragmentList.PN_ELEMENT_NAMES, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String[] elementNames;
 
     @ValueMapValue(name = ContentFragmentList.PN_TAG_NAMES, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String[] tagNames;
 
     @ValueMapValue(name = ContentFragmentList.PN_PARENT_PATH, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String parentPath;
 
     @ValueMapValue(name = ContentFragmentList.PN_MAX_ITEMS, injectionStrategy = InjectionStrategy.OPTIONAL)
@@ -100,12 +103,14 @@ public class ContentFragmentListImpl implements ContentFragmentList {
     private int maxItems;
 
     @ValueMapValue(name = ContentFragmentList.PN_ORDER_BY, injectionStrategy = InjectionStrategy.OPTIONAL)
-    private String orderBy = JcrConstants.JCR_CREATED;
+    @Default(values = JcrConstants.JCR_CREATED)
+    private String orderBy;
 
     @ValueMapValue(name = ContentFragmentList.PN_SORT_ORDER, injectionStrategy = InjectionStrategy.OPTIONAL)
-    private String sortOrder = Predicate.SORT_ASCENDING;
+    @Default(values = Predicate.SORT_ASCENDING)
+    private String sortOrder;
 
-    private List<DAMContentFragment> items = new ArrayList<>();
+    private final List<DAMContentFragment> items = new ArrayList<>();
 
     @PostConstruct
     private void initModel() {
@@ -133,7 +138,7 @@ public class ContentFragmentListImpl implements ContentFragmentList {
 
         Map<String, String> queryParameterMap = new HashMap<>();
         queryParameterMap.put("path", parentPath);
-        queryParameterMap.put("type", "dam:Asset");
+        queryParameterMap.put("type", NT_DAM_ASSET);
         queryParameterMap.put("p.limit", Integer.toString(maxItems));
         queryParameterMap.put("1_property", JcrConstants.JCR_CONTENT + "/data/cq:model");
         queryParameterMap.put("1_property.value", modelPath);
@@ -163,7 +168,7 @@ public class ContentFragmentListImpl implements ContentFragmentList {
 
         PredicateGroup predicateGroup = PredicateGroup.create(queryParameterMap);
         Query query = queryBuilder.createQuery(predicateGroup, session);
-        
+
         SearchResult searchResult = query.getResult();
 
         LOG.debug("Query statement: '{}'", searchResult.getQueryStatement());
@@ -196,7 +201,7 @@ public class ContentFragmentListImpl implements ContentFragmentList {
     @NotNull
     @Override
     public Collection<DAMContentFragment> getListItems() {
-        return items;
+        return Collections.unmodifiableCollection(items);
     }
 
     @NotNull

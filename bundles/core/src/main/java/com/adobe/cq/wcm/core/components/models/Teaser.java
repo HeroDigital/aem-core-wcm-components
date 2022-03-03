@@ -18,16 +18,16 @@ package com.adobe.cq.wcm.core.components.models;
 import java.util.List;
 
 import org.apache.sling.api.resource.Resource;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import com.adobe.cq.export.json.ComponentExporter;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
 
 /**
  * Defines the {@code Teaser} Sling Model for the {@code /apps/core/wcm/components/teaser} component.
  *
  * @since com.adobe.cq.wcm.core.components.models 12.4.0
  */
-public interface Teaser extends ComponentExporter {
+public interface Teaser extends Component {
 
     /**
      * Name of the resource property that defines whether or not the teaser has Call-to-Action elements
@@ -79,6 +79,13 @@ public interface Teaser extends ComponentExporter {
     String PN_TITLE_HIDDEN = "titleHidden";
 
     /**
+     * Name of the policy property that defines whether or not the pretitle is hidden.
+     *
+     * @since com.adobe.cq.wcm.core.components.models 12.12.0
+     */
+    String PN_PRETITLE_HIDDEN = "pretitleHidden";
+
+    /**
      * Name of the policy property that defines whether or not the title link is hidden.
      *
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
@@ -115,13 +122,20 @@ public interface Teaser extends ComponentExporter {
     String PN_TITLE_TYPE = "titleType";
 
     /**
+     * Name of the policy property that defines whether or not the title type is shown.
+     *
+     * @since com.adobe.cq.wcm.core.components.models 12.16.0
+     */
+    String PN_SHOW_TITLE_TYPE = "showTitleType";
+
+    /**
      * Checks if the teaser has Call-to-Action elements
      *
      * @return {@code true} if teaser has CTAs, {@code false} otherwise
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default boolean isActionsEnabled() {
-        throw new UnsupportedOperationException();
+        return false;
     }
 
     /**
@@ -131,7 +145,18 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default List<ListItem> getActions() {
-        throw new UnsupportedOperationException();
+        return null;
+    }
+
+    /**
+     * Returns the primary link of this teaser.
+     *
+     * @return the primary link of this teaser
+     * @since com.adobe.cq.wcm.core.components.models 12.21.0
+     */
+    @Nullable
+    default Link getLink() {
+        return null;
     }
 
     /**
@@ -139,9 +164,11 @@ public interface Teaser extends ComponentExporter {
      *
      * @return the URL to which teaser links or {@code null}
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
+     * @deprecated Please use {@link #getLink()}
      */
+    @Deprecated
     default String getLinkURL() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -151,7 +178,7 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default Resource getImageResource() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -161,7 +188,17 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default boolean isImageLinkHidden() {
-        throw new UnsupportedOperationException();
+        return false;
+    }
+
+    /**
+     * Returns this teaser's pretitle, if one was defined.
+     *
+     * @return the teaser's pretitle or {@code null}
+     * @since com.adobe.cq.wcm.core.components.models 12.12.0
+     */
+    default String getPretitle() {
+        return null;
     }
 
     /**
@@ -171,7 +208,7 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default String getTitle() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -181,7 +218,7 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default boolean isTitleLinkHidden() {
-        throw new UnsupportedOperationException();
+        return false;
     }
 
     /**
@@ -191,7 +228,7 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default String getDescription() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -201,16 +238,7 @@ public interface Teaser extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default String getTitleType() {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @since com.adobe.cq.wcm.core.components.models 12.4.0
-     */
-    @NotNull
-    @Override
-    default String getExportedType() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
 }

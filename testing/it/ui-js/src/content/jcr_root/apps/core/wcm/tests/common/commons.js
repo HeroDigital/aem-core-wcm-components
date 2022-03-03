@@ -36,6 +36,8 @@
     // core component resource types
     // accordion component
     c.rtAccordion_v1 = "core/wcm/components/accordion/v1/accordion";
+    // embed component
+    c.rtEmbed_v1 = "core/wcm/components/embed/v1/embed";
     // text component
     c.rtText_v1 = "core/wcm/components/text/v1/text";
     c.rtText_v2 = "core/wcm/components/text/v2/text";
@@ -69,7 +71,7 @@
     c.rtContentFragment_v1 = "core/wcm/components/contentfragment/v1/contentfragment";
     // content fragment list component
     c.rtContentFragmentList_v1 = "core/wcm/components/contentfragmentlist/v1/contentfragmentlist";
-    // form container
+    // core form container
     c.rtFormContainer_v1 = "core/wcm/components/form/container/v1/container";
     c.rtFormContainer_v2 = "core/wcm/components/form/container/v2/container";
     // form button

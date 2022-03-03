@@ -15,10 +15,16 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.models;
 
+import java.util.Collections;
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
 import org.jetbrains.annotations.NotNull;
 import org.osgi.annotation.versioning.ConsumerType;
 
 import com.adobe.cq.export.json.ComponentExporter;
+import com.adobe.cq.export.json.ContainerExporter;
 
 /**
  * Defines the {@code ExperienceFragment} Sling Model used for the
@@ -27,7 +33,7 @@ import com.adobe.cq.export.json.ComponentExporter;
  * @since com.adobe.cq.wcm.core.components.models 12.9.0
  */
 @ConsumerType
-public interface ExperienceFragment extends ComponentExporter {
+public interface ExperienceFragment extends Component, ContainerExporter {
 
     /**
      * Name of the configuration policy property that specifies the experience fragment variation path. The property
@@ -50,9 +56,37 @@ public interface ExperienceFragment extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.9.0
      */
     default String getLocalizedFragmentVariationPath() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
+    /**
+     * Returns the technical name of the experience fragment.
+     *
+     * @return the technical name of the experience fragment
+     * @since com.adobe.cq.wcm.core.components.models 12.11.0
+     */
+    default String getName() {
+        return null;
+    }
+
+    /**
+     * Generates some container class names (needed for SPA framework)
+     * @return Css Class names
+     * @since com.adobe.cq.wcm.core.components.models 12.15.0
+     */
+    @Nullable
+    default String getCssClassNames()  {
+        return null;
+    }
+    
+    /**
+     * Simple boolean flag to check if the experience fragment variation and its underlying experience fragment is configured.
+     * If the localizedFragmentVariationPath path is not configured or the children are empty, this wis will return false.
+     * @return localizedFragmentVariationPath is configured and has entries
+     * @since com.adobe.cq.wcm.core.components.models 12.15.0
+     */
+    default boolean isConfigured()  {return false; }
+    
     /**
      * @see ComponentExporter#getExportedType()
      * @since com.adobe.cq.wcm.core.components.models 12.9.0
@@ -60,7 +94,27 @@ public interface ExperienceFragment extends ComponentExporter {
     @NotNull
     @Override
     default String getExportedType() {
-        throw new UnsupportedOperationException();
+        return "";
+    }
+    
+    /**
+     * @see ContainerExporter#getExportedItemsOrder()
+     * @since com.adobe.cq.wcm.core.components.models 12.15.0
+     */
+    @NotNull
+    @Override
+    default String[] getExportedItemsOrder() {
+        return new String[]{};
+    }
+    
+    /**
+     * @see ContainerExporter#getExportedItems()
+     * @since com.adobe.cq.wcm.core.components.models 12.15.0
+     */
+    @NotNull
+    @Override
+    default Map<String, ? extends ComponentExporter> getExportedItems() {
+        return Collections.emptyMap();
     }
 
 }

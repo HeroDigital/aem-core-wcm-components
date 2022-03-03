@@ -19,8 +19,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
 import javax.annotation.PostConstruct;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.ValueMap;
@@ -29,14 +31,18 @@ import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.LanguageNavigation;
+import com.adobe.cq.wcm.core.components.models.LanguageNavigationItem;
 import com.adobe.cq.wcm.core.components.models.NavigationItem;
 import com.day.cq.wcm.api.Page;
 import com.day.cq.wcm.api.PageFilter;
 import com.day.cq.wcm.api.PageManager;
+import com.day.cq.wcm.api.components.Component;
 import com.day.cq.wcm.api.designer.Style;
 
 @Model(adaptables = SlingHttpServletRequest.class,
@@ -44,9 +50,10 @@ import com.day.cq.wcm.api.designer.Style;
        resourceType = {LanguageNavigationImpl.RESOURCE_TYPE})
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME ,
           extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class LanguageNavigationImpl implements LanguageNavigation {
+public class LanguageNavigationImpl extends AbstractComponentImpl implements LanguageNavigation {
 
     public static final String RESOURCE_TYPE = "core/wcm/components/languagenavigation/v1/languagenavigation";
+    private static final String PN_ACCESSIBILITY_LABEL = "accessibilityLabel";
 
     @Self
     private SlingHttpServletRequest request;
@@ -59,6 +66,12 @@ public class LanguageNavigationImpl implements LanguageNavigation {
 
     @ScriptVariable
     private Style currentStyle;
+
+    @Self
+    private LinkHandler linkHandler;
+
+    @Nullable
+    private String accessibilityLabel;
 
     private String navigationRoot;
     private int structureDepth;
@@ -86,7 +99,16 @@ public class LanguageNavigationImpl implements LanguageNavigation {
                 items = Collections.emptyList();
             }
         }
-        return items;
+        return Collections.unmodifiableList(items);
+    }
+
+    @Override
+    @Nullable
+    public String getAccessibilityLabel() {
+        if (this.accessibilityLabel == null) {
+            this.accessibilityLabel = this.resource.getValueMap().get(PN_ACCESSIBILITY_LABEL, String.class);
+        }
+        return this.accessibilityLabel;
     }
 
     @NotNull
@@ -112,11 +134,18 @@ public class LanguageNavigationImpl implements LanguageNavigation {
                 if (localizedPage != null) {
                     page = localizedPage;
                 }
-                pages.add(new LanguageNavigationItemImpl(page, active, request, level, children, title));
+                boolean current = currentPage.getPath().equals(page.getPath());
+                pages.add(newLanguageNavigationItem(page, active, current, linkHandler, level, children, title, getId(), component));
             }
         }
 
         return pages;
+    }
+
+    protected LanguageNavigationItem newLanguageNavigationItem(Page page, boolean active, boolean current, @NotNull LinkHandler linkHandler,
+                                                               int level, List<NavigationItem> children, String title, String parentId,
+                                                               Component component) {
+        return new LanguageNavigationItemImpl(page, active, current, linkHandler, level, children, title, parentId, component);
     }
 
     private Page getLocalizedPage(Page page, Page languageRoot) {

@@ -28,6 +28,7 @@ import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.commons.osgi.PropertiesUtil;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -41,7 +42,7 @@ import com.day.cq.wcm.foundation.forms.FormsHandlingServletHelper;
 import com.day.cq.wcm.foundation.security.SaferSlingPostValidator;
 
 /**
- * This form handling servlet accepts POSTs to a form container
+ * This form handling servlet accepts POSTs to a core form container
  * but only if the selector "form" and the extension "html" is used.
  */
 @SuppressWarnings("serial")
@@ -67,7 +68,7 @@ public class CoreFormHandlingServlet
 
     @ObjectClassDefinition(
             name = "Core Form Handling Servlet",
-            description = "Accepts posting to a form container component and performs validations"
+            description = "Accepts posting to a core form container component and performs validations"
     )
     @interface Configuration {
         @AttributeDefinition(
@@ -86,32 +87,28 @@ public class CoreFormHandlingServlet
     static final String EXTENSION = "html";
     private static final Boolean PROP_ALLOW_EXPRESSION_DEFAULT = true;
 
-    private String[] dataNameWhitelist;
-
-    private FormsHandlingServletHelper formsHandlingServletHelper;
-
-    private boolean allowExpressions;
+    private transient FormsHandlingServletHelper formsHandlingServletHelper;
 
     @Reference
-    private SaferSlingPostValidator validator;
+    private transient SaferSlingPostValidator validator;
 
     @Reference
-    private FormStructureHelperFactory formStructureHelperFactory;
+    private transient FormStructureHelperFactory formStructureHelperFactory;
 
     @Activate
     protected void activate(Configuration configuration) {
 
-        dataNameWhitelist = PropertiesUtil.toStringArray(configuration.name_whitelist());
-        allowExpressions = PropertiesUtil.toBoolean(configuration.allow_expressions(), PROP_ALLOW_EXPRESSION_DEFAULT);
+        String[] dataNameWhitelist = PropertiesUtil.toStringArray(configuration.name_whitelist());
+        boolean allowExpressions = PropertiesUtil.toBoolean(configuration.allow_expressions(), PROP_ALLOW_EXPRESSION_DEFAULT);
         formsHandlingServletHelper = new FormsHandlingServletHelper(dataNameWhitelist, validator, FormConstants.RT_ALL_CORE_FORM_CONTAINER,
-                allowExpressions, formStructureHelperFactory);
+            allowExpressions, formStructureHelperFactory);
     }
 
     /**
      * @see org.apache.sling.api.servlets.SlingAllMethodsServlet#doPost(org.apache.sling.api.SlingHttpServletRequest, org.apache.sling.api.SlingHttpServletResponse)
      */
-    protected void doPost(SlingHttpServletRequest request,
-                          final SlingHttpServletResponse response)
+    @Override
+    protected void doPost(@NotNull SlingHttpServletRequest request, @NotNull final SlingHttpServletResponse response)
             throws ServletException, IOException {
         formsHandlingServletHelper.doPost(request, response);
     }
@@ -129,7 +126,7 @@ public class CoreFormHandlingServlet
     /**
      * @see Filter#init(FilterConfig)
      */
-    public void init(final FilterConfig config) throws ServletException {
+    public void init(final FilterConfig config) {
         // nothing to do!
     }
 }

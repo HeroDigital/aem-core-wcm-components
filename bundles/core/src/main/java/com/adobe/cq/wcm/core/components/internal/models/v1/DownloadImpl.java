@@ -22,6 +22,7 @@ import javax.jcr.Node;
 import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +43,8 @@ import org.jetbrains.annotations.NotNull;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.internal.servlets.DownloadServlet;
 import com.adobe.cq.wcm.core.components.models.Download;
 import com.day.cq.commons.DownloadResource;
@@ -50,18 +53,27 @@ import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.DamConstants;
 import com.day.cq.wcm.api.designer.Style;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Model(adaptables = SlingHttpServletRequest.class,
        adapters = {Download.class, ComponentExporter.class},
-       resourceType = DownloadImpl.RESOURCE_TYPE)
+       resourceType = {DownloadImpl.RESOURCE_TYPE_V1, DownloadImpl.RESOURCE_TYPE_V2})
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME,
           extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class DownloadImpl implements Download {
+public class DownloadImpl extends AbstractComponentImpl implements Download {
 
-    public final static String RESOURCE_TYPE = "core/wcm/components/download/v1/download";
+    private static final Logger LOGGER = LoggerFactory.getLogger(DownloadImpl.class);
+
+    public final static String RESOURCE_TYPE_V1 = "core/wcm/components/download/v1/download";
+    public final static String RESOURCE_TYPE_V2 = "core/wcm/components/download/v2/download";
 
     @Self
     private SlingHttpServletRequest request;
+
+    @Self
+    private LinkHandler linkHandler;
 
     @ScriptVariable
     private Resource resource;
@@ -74,6 +86,7 @@ public class DownloadImpl implements Download {
 
     @ScriptVariable(injectionStrategy = InjectionStrategy.OPTIONAL)
     @JsonIgnore
+    @Nullable
     protected Style currentStyle;
 
     @SlingObject
@@ -93,15 +106,18 @@ public class DownloadImpl implements Download {
 
     private boolean displayFilename;
 
-    @ValueMapValue(optional = true,
-                   name = JcrConstants.JCR_TITLE)
+    private boolean hideTitleLink = false;
+
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL, name = JcrConstants.JCR_TITLE)
+    @Nullable
     private String title;
 
-    @ValueMapValue(optional = true,
-                   name = JcrConstants.JCR_DESCRIPTION)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL, name = JcrConstants.JCR_DESCRIPTION)
+    @Nullable
     private String description;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String actionText;
 
     private String titleType;
@@ -127,6 +143,7 @@ public class DownloadImpl implements Download {
             displaySize = currentStyle.get(PN_DISPLAY_SIZE, true);
             displayFormat = currentStyle.get(PN_DISPLAY_FORMAT, true);
             displayFilename = currentStyle.get(PN_DISPLAY_FILENAME, true);
+            hideTitleLink = currentStyle.get(PN_HIDE_TITLE_LINK, false);
         }
         if (StringUtils.isNotBlank(fileReference)) {
             initAssetDownload(fileReference);
@@ -158,7 +175,7 @@ public class DownloadImpl implements Download {
                         extension = mimeTypeService.getExtension(format);
                     }
 
-                    url = getDownloadUrl(file) + "/" + filename;
+                    url = linkHandler.getLink(getDownloadUrl(file) + "/" + filename, null).map(Link::getURL).orElse(null);
                     size = FileUtils.byteCountToDisplaySize(getFileSize(fileContent));
                 }
             }
@@ -191,13 +208,10 @@ public class DownloadImpl implements Download {
                         extension = FilenameUtils.getExtension(filename);
                     }
 
-                    url = getDownloadUrl(downloadResource);
+                    url = linkHandler.getLink(getDownloadUrl(downloadResource), null).map(Link::getURL).orElse(null);
 
                     if (titleFromAsset) {
-                        String assetTitle = downloadAsset.getMetadataValue(DamConstants.DC_TITLE);
-                        if (StringUtils.isNotBlank(assetTitle)) {
-                            title = assetTitle;
-                        }
+                        title = downloadAsset.getMetadataValue(DamConstants.DC_TITLE);
                     }
                     if (descriptionFromAsset) {
                         String assetDescription = downloadAsset.getMetadataValue(DamConstants.DC_DESCRIPTION);
@@ -206,12 +220,16 @@ public class DownloadImpl implements Download {
                         }
                     }
 
-                    size = null;
+                    long rawFileSize;
                     Object rawFileSizeObject = downloadAsset.getMetadata(DamConstants.DAM_SIZE);
+
                     if (rawFileSizeObject != null) {
-                        long rawFileSize = (Long) rawFileSizeObject;
-                        size = FileUtils.byteCountToDisplaySize(rawFileSize);
+                        rawFileSize = (Long) rawFileSizeObject;
+                    } else {
+                        rawFileSize = downloadAsset.getOriginal().getSize();
                     }
+
+                    size = FileUtils.byteCountToDisplaySize(rawFileSize);
             }
         }
     }
@@ -278,6 +296,11 @@ public class DownloadImpl implements Download {
     }
 
     @Override
+    public boolean hideTitleLink() {
+        return hideTitleLink;
+    }
+
+    @Override
     public String getExtension() {
         return extension;
     }
@@ -291,7 +314,7 @@ public class DownloadImpl implements Download {
                 size = data.getBinary().getSize();
             }
             catch (RepositoryException ex) {
-                throw new RuntimeException("Unable to detect binary file size for " + resource.getPath(), ex);
+                LOGGER.error("Unable to detect binary file size for " + resource.getPath(), ex);
             }
         }
         return size;

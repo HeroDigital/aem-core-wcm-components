@@ -16,6 +16,7 @@
 package com.adobe.cq.wcm.core.components.internal.servlets;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -73,6 +74,12 @@ public class AdaptiveImageServletMappingConfigurationFactory {
         )
         int defaultResizeWidth() default AdaptiveImageServlet.DEFAULT_RESIZE_WIDTH;
 
+        @AttributeDefinition(
+                name = "Maximum processed image size",
+                description = "In case the source image is larger on either dimensions than this size, the servlet will refuse to process " +
+                        "it and will throw an exception, to avoid running out of memory."
+        )
+        int maxSize() default AdaptiveImageServlet.DEFAULT_MAX_SIZE;
 
     }
 
@@ -83,6 +90,8 @@ public class AdaptiveImageServletMappingConfigurationFactory {
     private List<String> extensions;
 
     private int defaultResizeWidth;
+
+    private int maxSize;
 
     /**
      * Invoked when a configuration is created or modified.
@@ -96,6 +105,7 @@ public class AdaptiveImageServletMappingConfigurationFactory {
         selectors = getValues(config.selectors());
         extensions = getValues(config.extensions());
         defaultResizeWidth = config.defaultResizeWidth();
+        maxSize = config.maxSize();
     }
 
     /**
@@ -105,7 +115,7 @@ public class AdaptiveImageServletMappingConfigurationFactory {
      */
     @NotNull
     public List<String> getResourceTypes() {
-        return this.resourceTypes;
+        return Collections.unmodifiableList(this.resourceTypes);
     }
 
     /**
@@ -115,7 +125,7 @@ public class AdaptiveImageServletMappingConfigurationFactory {
      */
     @NotNull
     public List<String> getSelectors() {
-        return this.selectors;
+        return Collections.unmodifiableList(this.selectors);
     }
 
     /**
@@ -125,7 +135,7 @@ public class AdaptiveImageServletMappingConfigurationFactory {
      */
     @NotNull
     public List<String> getExtensions() {
-        return this.extensions;
+        return Collections.unmodifiableList(this.extensions);
     }
 
     /**
@@ -135,6 +145,14 @@ public class AdaptiveImageServletMappingConfigurationFactory {
      */
     public int getDefaultResizeWidth() {
         return defaultResizeWidth;
+    }
+
+    /**
+     * Returns the maximum image width that the {@link AdaptiveImageServlet} will process.
+     * @return
+     */
+    public int getMaxSize() {
+        return maxSize;
     }
 
     /**

@@ -19,14 +19,16 @@ Extensible page component written in HTL.
 
 ## Features
 * Editable templates
+* SEO meta title, tagging and language definition
+* Canonical link, alternate language links and robots tags
 * Page title, subtitle, description and thumbnail
 * Navigation title, or hide from navigation
 * Vanity URL, page alias and redirection
-* Page tagging and define content language
 * On/Off time and launches
 * Blueprints and live copy
 * Closed user groups and permissions
 * Cloud services
+* [PWA support](https://experienceleague.adobe.com/docs/experience-manager-cloud-service/sites/authoring/features/enable-pwa.html)
 
 ## Loading of CSS/JS
 The page component automatically loads certain client libraries in the head section and at the end of the body section
@@ -39,6 +41,25 @@ libsScript from all referenced [cloud service configurations](https://docs.adobe
 `<clientlibs>` being set in component policy | only if `<clientlibs>` is set | CSS | Head
 `<designpath>.css` | only if design is set for current page | CSS | Head
 `<clientlibs>` being set in component policy | only if `<clientlibs>` is set. Categories duplicated in `<clientlibsJsHead>` are only loaded in the page head. | JS | Body
+
+### Loading of Context-Aware CSS/JS
+The page component also supports loading developer-defined context-aware CSS, Javascript or `meta` tags. This is done by creating a [context-aware resource](https://sling.apache.org/documentation/bundles/context-aware-configuration/context-aware-configuration.html#context-aware-resources) for `com.adobe.cq.wcm.core.components.config.HtmlPageItemsConfig` with the following structure:
+
+```
+com.adobe.cq.wcm.core.components.config.HtmlPageItemsConfig
+    - prefixPath="/some/path"
+    + item01
+        - element=["link"|"script"|"meta"]
+        - location=["header"|"footer"]
+        + attributes
+            - attributeName01="attributeValue01"
+            - attributeName02="attributeValue02"
+            ...
+    + item02
+        ...
+    ...
+```
+These items will be loaded in the header or footer of the page, depending on the configured `location`. The attribute names should match supported HTML attributes for [link](https://www.w3schools.com/tags/tag_link.asp), [script](https://www.w3schools.com/tags/tag_script.asp) and [meta](https://www.w3schools.com/tags/tag_meta.asp).
 
 ## Use Object
 The Page component uses the following use objects:
@@ -53,32 +74,35 @@ The following configuration properties are used:
 2. `./clientlibsJsHead` - allows definition of client libraries for which JavaScript is specifically intended to be loaded
 in the document head (JavaScript only) of pages associated with this policy configuration
 3. `./appResourcesClientlib` - allows definition of the client library that is used to serve web resources such as favicons
+4. `./renderAlternateLanguageLinks` - toggles on/off the rendering of links to alternate language versions of the page in its head
 
 ## Edit Dialog Properties
 The following properties are written to JCR for this Page component and are expected to be available as `Resource` properties:
 
-1. `./jcr:title` - defines the title for this page
-2. `pageName` - defines the page name for this page
-3. `./cq:tags` - defines the tags for this page
-4. `./hideInNav` - if set to `true` then this page will be hidden from navigation
-5. `./pageTitle` - defines an alternate title for this page
-6. `./navTitle` - defines the navigation title for this page
-7. `./subtitle` - defines a subtitle for this page
-8. `./jcr:description` - defines a description for this page
-9.  `./onTime` - defines when the page should become available
-10. `./offTime` - defines when the page should not be available any more
-11. `./sling:vanityPath` - defines a vanity URL at which this page could be accessed
-12. `./sling:redirect` - if set to `true`, then this page will redirect to its defined vanity URL
-13. `./jcr:language` - defines the language set for this page, to help with `i18n`
-14. `./cq:designPath` - defines where the design for this page is stored
-15. `./sling:alias` - defines a Sling alias for this page, so that the page can be accessed at a different resource path
-16. `./cq:allowedTemplates` - defines a template or a list of templates that the page should use
-17. `./cq:exportTemplate` - defines the template used for exporting this page for content synchronisation
-18. `./socialMedia` - defines the enabled social media configurations
-19. `./variantPath` - allows defining the social media variation experience fragment to be used for generating page meta data for social
+1. `./jcr:title` - defines the page title, used for the page SEO meta title and on-page title (unless an overriding `./pageTitle` is defined).
+2. `pageName` - defines the page name.
+3. `./cq:tags` - defines the page SEO meta tags.
+4. `./hideInNav` - if `true`, the page will be hidden in a navigation context (breadcrumb, navigation etc.).
+5. `./pageTitle` - defines an alternative page title. Used for overriding the `./jcr:title` in an on-page context.
+6. `./navTitle` - defines the page navigation title. Overrides other page titles, when the page is displayed in a navigation context (breadcrumb, navigation etc.).
+7. `./subtitle` - defines the page subtitle.
+8. `./jcr:description` - defines the page description.
+9.  `./onTime` - defines when the page should become available.
+10. `./offTime` - defines when the page should no longer be available.
+11. `./sling:vanityPath` - defines a vanity URL at which the page could be accessed.
+12. `./sling:redirect` - if `true`, the page will redirect to its defined vanity URL.
+13. `./jcr:language` - defines the language set for this page, to help with `i18n`.
+14. `./cq:designPath` - defines where the design for the page is stored.
+15. `./sling:alias` - defines a Sling alias for the page, so that it can be accessed at a different resource path.
+16. `./cq:allowedTemplates` - defines a template or a list of templates that the page should use.
+17. `./cq:exportTemplate` - defines the template used for exporting the page for content synchronisation.
+18. `./socialMedia` - defines the enabled social media configurations.
+19. `./variantPath` - allows defining the social media variation experience fragment to be used for generating page metadata for social
 media
-20. `./cq:contextHubPath` - defines the Context Path configuration used by this page
-21. `./cq:contextHubSegmentsPath` - defines the Context Path Segments Path
+20. `./cq:contextHubPath` - defines the Context Path configuration used by this page.
+21. `./cq:contextHubSegmentsPath` - defines the Context Path Segments Path.
+22. `./mainContentSelector` - defines the ID of the main content element of the page (used by the "skip to main content" accessibility feature).
+23. `./id` - defines the component HTML ID attribute.
 
 ## Web Resources Client Library
 A web resources client library can be defined at the template level (see `./appResourcesClientlib` component policy configuration).

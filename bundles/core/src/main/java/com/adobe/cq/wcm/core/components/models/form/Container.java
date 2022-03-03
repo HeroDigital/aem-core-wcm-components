@@ -15,9 +15,11 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.models.form;
 
+import java.util.Collections;
 import java.util.Map;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.osgi.annotation.versioning.ConsumerType;
 
 import com.adobe.cq.export.json.ComponentExporter;
@@ -38,7 +40,7 @@ public interface Container extends ContainerExporter {
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getMethod() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -48,7 +50,7 @@ public interface Container extends ContainerExporter {
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getAction() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -58,7 +60,7 @@ public interface Container extends ContainerExporter {
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getId() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -68,7 +70,7 @@ public interface Container extends ContainerExporter {
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getName() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -78,31 +80,42 @@ public interface Container extends ContainerExporter {
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getEnctype() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
-     * Returns the resource type for the "new" section in the form container where other input components will
+     * Returns the resource type for the "new" section in the core form container where other input components will
      * be dropped.
      *
-     * @return resource type for the "new" section in form container where other input components will
+     * @return resource type for the "new" section in core form container where other input components will
      * be dropped
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getResourceTypeForDropArea() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
      * This method returns the redirect url property of this form. If the current sling request has a non-blank context path, the context
      * path is prepended to the redirect url if the redirect is an absolute path starting with '/'. This method also appends ".html" to the
      * redirect path.
-     * 
+     *
      * @return The form redirect url (used in the :redirect hidden input field of the form)
      * @since com.adobe.cq.wcm.core.components.models.form 13.0.0; marked <code>default</code> in 14.1.0
      */
     default String getRedirect() {
-        throw new UnsupportedOperationException();
+        return null;
+    }
+
+    /**
+     * This method returns a general error messages which should be displayed inside of the form if the submit action fails.
+     *
+     * @return The general error message
+     * @since com.adobe.cq.wcm.core.components.models.form 14.3.0
+     */
+    @Nullable
+    default String[] getErrorMessages() {
+        return null;
     }
 
     /**
@@ -112,7 +125,7 @@ public interface Container extends ContainerExporter {
     @NotNull
     @Override
     default String[] getExportedItemsOrder() {
-        throw new UnsupportedOperationException();
+        return new String[]{};
     }
 
     /**
@@ -122,7 +135,7 @@ public interface Container extends ContainerExporter {
     @NotNull
     @Override
     default Map<String, ? extends ComponentExporter> getExportedItems() {
-        throw new UnsupportedOperationException();
+        return Collections.emptyMap();
     }
 
     /**
@@ -132,6 +145,6 @@ public interface Container extends ContainerExporter {
     @NotNull
     @Override
     default String getExportedType() {
-        throw new UnsupportedOperationException();
+        return "";
     }
 }

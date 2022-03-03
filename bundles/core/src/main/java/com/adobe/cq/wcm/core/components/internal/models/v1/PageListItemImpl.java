@@ -16,45 +16,89 @@
 package com.adobe.cq.wcm.core.components.internal.models.v1;
 
 import java.util.Calendar;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.Optional;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.sling.api.SlingHttpServletRequest;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jetbrains.annotations.Nullable;
 
-import com.adobe.cq.wcm.core.components.internal.Utils;
-import com.adobe.cq.wcm.core.components.internal.models.v2.PageImpl;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.ListItem;
+import com.adobe.cq.wcm.core.components.models.datalayer.PageData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 import com.day.cq.wcm.api.Page;
-import com.day.cq.wcm.api.PageManager;
+import com.day.cq.wcm.api.components.Component;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public class PageListItemImpl implements ListItem {
+/**
+ * List item implementation for a page-backed list item.
+ */
+public class PageListItemImpl extends AbstractListItemImpl implements ListItem {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PageListItemImpl.class);
-
-    protected SlingHttpServletRequest request;
+    /**
+     * The page for this list item.
+     */
     protected Page page;
 
-    public PageListItemImpl(@NotNull SlingHttpServletRequest request, @NotNull Page page) {
-        this.request = request;
-        this.page = page;
-        Page redirectTarget = getRedirectTarget(page);
-        if (redirectTarget != null && !redirectTarget.equals(page)) {
-            this.page = redirectTarget;
+    /**
+     * The link for this list item.
+     */
+    protected Optional<Link<Page>> link;
+
+    /**
+     * Construct a list item for a given page.
+     *
+     * @param linkHandler The link handler.
+     * @param page The current page.
+     * @param parentId The ID of the list containing this item.
+     * @param component The component containing this list item.
+     */
+    public PageListItemImpl(@NotNull final LinkHandler linkHandler,
+                            @NotNull final Page page,
+                            final String parentId,
+                            final Component component) {
+        super(parentId, page.getContentResource(), component);
+        this.parentId = parentId;
+        this.link = linkHandler.getLink(page);
+        if (this.link.isPresent()) {
+            this.page = link.get().getReference();
+        } else {
+            this.page = page;
         }
     }
 
     @Override
+    @JsonIgnore
+    @Nullable
+    public Link<Page> getLink() {
+        return link.orElse(null);
+    }
+
+    @Override
     public String getURL() {
-        return Utils.getURL(request, page);
+        return link.map(Link::getURL).orElse(null);
     }
 
     @Override
     public String getTitle() {
+        return PageListItemImpl.getTitle(this.page);
+    }
+
+    /**
+     * Gets the title of a page list item from a given page.
+     * The list item title is derived from the page by selecting the first non-null value from the
+     * following:
+     * <ul>
+     *     <li>{@link Page#getNavigationTitle()}</li>
+     *     <li>{@link Page#getPageTitle()}</li>
+     *     <li>{@link Page#getTitle()}</li>
+     *     <li>{@link Page#getName()}</li>
+     * </ul>
+     *
+     * @param page The page for which to get the title.
+     * @return The list item title.
+     */
+    public static String getTitle(@NotNull final Page page) {
         String title = page.getNavigationTitle();
         if (title == null) {
             title = page.getPageTitle();
@@ -89,22 +133,12 @@ public class PageListItemImpl implements ListItem {
         return page.getName();
     }
 
-    private Page getRedirectTarget(@NotNull Page page) {
-        Page result = page;
-        String redirectTarget;
-        PageManager pageManager = page.getPageManager();
-        Set<String> redirectCandidates = new LinkedHashSet<>();
-        redirectCandidates.add(page.getPath());
-        while (result != null && StringUtils.isNotEmpty((redirectTarget = result.getProperties().get(PageImpl.PN_REDIRECT_TARGET, String.class)))) {
-            result = pageManager.getPage(redirectTarget);
-            if (result != null) {
-                if (!redirectCandidates.add(result.getPath())) {
-                    LOGGER.warn("Detected redirect loop for the following pages: {}.", redirectCandidates.toString());
-                    break;
-                }
-            }
-        }
-        return result;
+    @Override
+    @NotNull
+    protected PageData getComponentData() {
+        return DataLayerBuilder.extending(super.getComponentData()).asPage()
+            .withTitle(this::getTitle)
+            .withLinkUrl(() -> link.map(Link::getMappedURL).orElse(null))
+            .build();
     }
-
 }

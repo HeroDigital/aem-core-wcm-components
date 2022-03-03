@@ -34,10 +34,12 @@ The Container component uses the `com.adobe.cq.wcm.core.components.models.Layout
 ### Component Policy Configuration Properties
 The following configuration properties are used:
 
-1. `./backgroundImageEnabled` - defines whether to display a background image option.
-2. `./backgroundColorEnabled` - defines whether to display a background color option.
-3. `./backgroundColorSwatchesOnly` -  defines whether or not to display swatches in the background color picker.
-4. `./allowedColorSwatches` - defines a list of background color swatches that are allowed to be selected by an author.
+1. `./layout` - defines the layout type, either `simple` (default) or `responsiveGrid`
+2. `./layoutDisabled` - if set to true, it is not allowed to change the layout in the edit dialog
+3. `./backgroundImageEnabled` - defines whether to display a background image option.
+4. `./backgroundColorEnabled` - defines whether to display a background color option.
+5. `./backgroundColorSwatchesOnly` -  defines whether or not to display swatches in the background color picker.
+6. `./allowedColorSwatches` - defines a list of background color swatches that are allowed to be selected by an author.
 
 It is also possible to define the allowed components for the Container.
 
@@ -45,17 +47,26 @@ It is also possible to define the allowed components for the Container.
 The following properties are written to JCR for this Container component and are expected to be available as `Resource` properties:
 
 #### Container Properties
-1. `./layout` - defines the layout type, either `simple` (default) or `responsiveGrid`
+1. `./layout` - defines the layout type, either `simple` (default) or `responsiveGrid`; if no value is defined, the component will fallback to the value defined by the component's policy
 
 #### Common Properties
-1. `./id` - defines the component HTML ID attribute.
-2. `./backgroundImageReference` - defines the container background image.
-3. `./backgroundColor` - defines the container background color.
+1. `./backgroundImageReference` - defines the container background image.
+2. `./backgroundColor` - defines the container background color.
+3. `./id` - defines the component HTML ID attribute.
+
+#### Accessibility
+1. `./accessibilityLabel` - defines an accessibility label for the container.
+2. `./roleAttribute` - defines a role attribute for the container.
 
 ## BEM Description
 ```
 BLOCK cmp-container
 ```
+
+### Enabling Container Editing Functionality
+The following property is required in the proxy component to enable full editing functionality for the Container:
+
+1. `./cq:isContainer` - set to `{Boolean}true`, marks the Container as a container component
 
 ## Information
 * **Vendor**: Adobe
@@ -67,4 +78,4 @@ BLOCK cmp-container
 * **Author**: [Ankur Ahlawat](https://github.com/aahlawat)
 * **Co-authors**: [Vlad Bailescu](https://github.com/bailescu), Shailesh Bassi
 
-_If you were involved in the authoring of this component and are not credited above, please reach out to us on [GitHub](https://github.com/Adobe-Marketing-Cloud/aem-core-wcm-components)._
+_If you were involved in the authoring of this component and are not credited above, please reach out to us on [GitHub](https://github.com/adobe/aem-core-wcm-components)._

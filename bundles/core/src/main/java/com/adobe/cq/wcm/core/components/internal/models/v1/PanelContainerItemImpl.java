@@ -15,24 +15,39 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v1;
 
+import java.util.Optional;
+
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.Resource;
-import org.apache.sling.api.resource.ValueMap;
 import org.jetbrains.annotations.NotNull;
 
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.ListItem;
 import com.day.cq.commons.jcr.JcrConstants;
+import com.day.cq.wcm.api.Page;
+import com.day.cq.wcm.api.components.Component;
 
+/**
+ * Panel container item implementation.
+ */
 public class PanelContainerItemImpl extends ResourceListItemImpl implements ListItem {
 
+    /**
+     * Name of the property that contains the panel item's title.
+     */
     public static final String PN_PANEL_TITLE = "cq:panelTitle";
 
-    public PanelContainerItemImpl(@NotNull SlingHttpServletRequest request, @NotNull Resource resource) {
-        super(request, resource);
-        ValueMap valueMap = resource.adaptTo(ValueMap.class);
-        if (valueMap != null) {
-            String jcrTitle = valueMap.get(JcrConstants.JCR_TITLE, String.class);
-            title = valueMap.get(PN_PANEL_TITLE, jcrTitle);
-        }
+    /**
+     * Construct a panel item.
+     *
+     * @param resource The resource.
+     * @param parentId The ID of the containing component.
+     */
+    public PanelContainerItemImpl(@NotNull final LinkHandler linkHandler, @NotNull final Resource resource, final String parentId, Component component,
+                                  Page currentPage) {
+        super(linkHandler, resource, parentId, component);
+        setCurrentPage(currentPage);
+        title = Optional.ofNullable(resource.getValueMap().get(PN_PANEL_TITLE, String.class))
+            .orElseGet(() -> resource.getValueMap().get(JcrConstants.JCR_TITLE, String.class));
     }
 }

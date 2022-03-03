@@ -25,15 +25,12 @@
             propertyName="./fragmentVariationPath"
             groups="[content]"/>
     </cq:dropTargets>
-    <cq:listeners
-        jcr:primaryType="nt:unstructured"
-        afterinsert="REFRESH_PAGE"/>
     <cq:actionConfigs
         jcr:primaryType="nt:unstructured">
         <editInNewTab
             jcr:primaryType="nt:unstructured"
             text="Edit"
-            handler="Granite.author.experienceFragments &amp;&amp; Granite.author.experienceFragments.actions.editInNewTab"
+            handler="CQ.CoreComponents.experiencefragment.v1.actions.edit"
             icon="edit"/>
     </cq:actionConfigs>
 </jcr:root>

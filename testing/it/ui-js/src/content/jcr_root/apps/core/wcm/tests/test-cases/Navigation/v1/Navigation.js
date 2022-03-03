@@ -145,7 +145,7 @@
             })
             .assert.exist(
                 '.cmp-navigation__item.cmp-navigation__item--level-0.cmp-navigation__item--active:contains("Page 1.1")')
-            .assert.exist('a.cmp-navigation__item-link[href$="/page_1_1_vanity"]')
+            .assert.exist('a.cmp-navigation__item-link[href$="/page_1_1.html"]')
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-1:contains("Page 1.1.1")')
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-1:contains("Page 1.1.2")', false)
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-1:contains("Page 1.1.3")');
@@ -163,7 +163,7 @@
             .assert.visible('coral-numberinput[name="./structureDepth"]', false)
             .fillInput('foundation-autocomplete[name="./navigationRoot"]', "%page_1%")
             // uncheck the skip root option
-            .click('input[name="./skipNavigationRoot"]')
+            .fillInput('input[name="./structureStart"]', "0")
             .execTestCase(c.tcSaveConfigureDialog)
             .wait(200)
             .config.changeContext(c.getContentFrame)
@@ -174,7 +174,7 @@
                 '.cmp-navigation__item.cmp-navigation__item--level-0.cmp-navigation__item--active:contains("Page 1")')
             .assert.exist(
                 '.cmp-navigation__item.cmp-navigation__item--level-1.cmp-navigation__item--active:contains("Page 1.1")')
-            .assert.exist('a.cmp-navigation__item-link[href$="/page_1_1_vanity"]')
+            .assert.exist('a.cmp-navigation__item-link[href$="/page_1_1.html"]')
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-2:contains("Page 1.1.1")')
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-2:contains("Page 1.1.2")', false)
             .assert.exist('.cmp-navigation__item.cmp-navigation__item--level-2:contains("Page 1.1.3")');

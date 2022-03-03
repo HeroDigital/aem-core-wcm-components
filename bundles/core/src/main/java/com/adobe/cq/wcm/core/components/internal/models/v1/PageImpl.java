@@ -24,9 +24,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
@@ -40,12 +43,18 @@ import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.factory.ModelFactory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ContainerExporter;
 import com.adobe.cq.export.json.ExporterConstants;
 import com.adobe.cq.export.json.SlingModelFilter;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.Utils;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.Page;
+import com.adobe.cq.wcm.core.components.models.datalayer.PageData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 import com.day.cq.tagging.Tag;
 import com.day.cq.wcm.api.NameConstants;
 import com.day.cq.wcm.api.Template;
@@ -54,12 +63,10 @@ import com.day.cq.wcm.api.designer.Designer;
 import com.day.cq.wcm.api.designer.Style;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-@Model(adaptables = SlingHttpServletRequest.class,
-       adapters = {Page.class, ContainerExporter.class},
-       resourceType = PageImpl.RESOURCE_TYPE)
-@Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME,
-          extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class PageImpl implements Page {
+@Model(adaptables = SlingHttpServletRequest.class, adapters = { Page.class,
+        ContainerExporter.class }, resourceType = PageImpl.RESOURCE_TYPE)
+@Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
+public class PageImpl extends AbstractComponentImpl implements Page {
 
     protected static final String RESOURCE_TYPE = "core/wcm/components/page/v1/page";
 
@@ -75,6 +82,7 @@ public class PageImpl implements Page {
 
     @ScriptVariable(injectionStrategy = InjectionStrategy.OPTIONAL)
     @JsonIgnore
+    @Nullable
     protected Style currentStyle;
 
     @ScriptVariable
@@ -88,20 +96,27 @@ public class PageImpl implements Page {
     private SlingModelFilter slingModelFilter;
 
     @Self
-    private SlingHttpServletRequest request;
+    protected LinkHandler linkHandler;
 
     protected String[] keywords = new String[0];
     protected String designPath;
     protected String staticDesignPath;
     protected String title;
+    protected String description;
+    protected String brandSlug;
+
     protected String[] clientLibCategories = new String[0];
     protected Calendar lastModifiedDate;
     protected String templateName;
 
     protected static final String DEFAULT_TEMPLATE_EDITOR_CLIENTLIB = "wcm.foundation.components.parsys.allowedcomponents";
     protected static final String PN_CLIENTLIBS = "clientlibs";
+
+    protected static final String PN_BRANDSLUG = "brandSlug";
+
     private Map<String, ComponentExporter> childModels = null;
     private String resourceType;
+    private Set<String> resourceTypes;
 
     @JsonIgnore
     protected Map<String, String> favicons = new HashMap<>();
@@ -109,6 +124,7 @@ public class PageImpl implements Page {
     @PostConstruct
     protected void initModel() {
         title = currentPage.getTitle();
+        description = currentPage.getDescription();
         if (StringUtils.isBlank(title)) {
             title = currentPage.getName();
         }
@@ -130,13 +146,14 @@ public class PageImpl implements Page {
         }
         populateClientlibCategories();
         templateName = extractTemplateName();
+        brandSlug = Utils.getInheritedValue(currentPage, PN_BRANDSLUG);
     }
 
     protected String extractTemplateName() {
         String templateName = null;
         String templatePath = pageProperties.get(NameConstants.PN_TEMPLATE, String.class);
         if (StringUtils.isNotEmpty(templatePath)) {
-            int i = templatePath.lastIndexOf("/");
+            int i = templatePath.lastIndexOf('/');
             if (i > 0) {
                 templateName = templatePath.substring(i + 1);
             }
@@ -144,10 +161,10 @@ public class PageImpl implements Page {
         return templateName;
     }
 
-
     @Override
     public String getLanguage() {
-        return currentPage == null ? Locale.getDefault().toLanguageTag() : currentPage.getLanguage(false).toLanguageTag();
+        return currentPage == null ? Locale.getDefault().toLanguageTag()
+                : currentPage.getLanguage(false).toLanguageTag();
     }
 
     @Override
@@ -176,6 +193,7 @@ public class PageImpl implements Page {
 
     @Override
     @JsonIgnore
+    @Deprecated
     public Map<String, String> getFavicons() {
         return favicons;
     }
@@ -186,6 +204,16 @@ public class PageImpl implements Page {
     }
 
     @Override
+    public String getDescription() {
+        return description;
+    }
+
+    @Override
+    public String getBrandSlug() {
+		return brandSlug;
+	}
+
+	@Override
     public String getTemplateName() {
         return templateName;
     }
@@ -194,6 +222,15 @@ public class PageImpl implements Page {
     @JsonIgnore
     public String[] getClientLibCategories() {
         return Arrays.copyOf(clientLibCategories, clientLibCategories.length);
+    }
+
+    @Override
+    @JsonIgnore
+    public Set<String> getComponentsResourceTypes() {
+        if (resourceTypes == null) {
+            resourceTypes = Utils.getPageResourceTypes(currentPage, request, modelFactory);
+        }
+        return resourceTypes;
     }
 
     @NotNull
@@ -232,15 +269,17 @@ public class PageImpl implements Page {
     }
 
     /**
-     * Returns a map (resource name => Sling Model class) of the given resource children's Sling Models that can be adapted to {@link T}.
+     * Returns a map (resource name => Sling Model class) of the given resource
+     * children's Sling Models that can be adapted to {@link T}.
      *
      * @param slingRequest the current request
-     * @param modelClass the Sling Model class to be adapted to
-     * @return a map (resource name => Sling Model class) of the given resource children's Sling Models that can be adapted to {@link T}
+     * @param modelClass   the Sling Model class to be adapted to
+     * @return a map (resource name => Sling Model class) of the given resource
+     *         children's Sling Models that can be adapted to {@link T}
      */
     @NotNull
     private <T> Map<String, T> getChildModels(@NotNull SlingHttpServletRequest slingRequest,
-                                              @NotNull Class<T> modelClass) {
+            @NotNull Class<T> modelClass) {
         Map<String, T> itemWrappers = new LinkedHashMap<>();
 
         for (final Resource child : slingModelFilter.filterChildResources(request.getResource().getChildren())) {
@@ -277,7 +316,7 @@ public class PageImpl implements Page {
                 addPolicyClientLibs(categories);
             }
         }
-        clientLibCategories = categories.toArray(new String[categories.size()]);
+        clientLibCategories = categories.toArray(new String[0]);
     }
 
     protected void addDefaultTemplateEditorClientLib(Resource templateResource, List<String> categories) {
@@ -291,4 +330,18 @@ public class PageImpl implements Page {
             Collections.addAll(categories, currentStyle.get(PN_CLIENTLIBS, ArrayUtils.EMPTY_STRING_ARRAY));
         }
     }
+
+    @Override
+    @NotNull
+    protected final PageData getComponentData() {
+        return DataLayerBuilder.extending(super.getComponentData()).asPage()
+            .withTitle(this::getTitle)
+            .withTags(() -> Arrays.copyOf(this.keywords, this.keywords.length))
+            .withDescription(() -> this.pageProperties.get(NameConstants.PN_DESCRIPTION, String.class))
+            .withTemplatePath(() -> this.currentPage.getTemplate().getPath())
+            .withUrl(() -> linkHandler.getLink(currentPage).map(Link::getURL).orElse(null))
+            .withLanguage(this::getLanguage)
+            .build();
+    }
+
 }

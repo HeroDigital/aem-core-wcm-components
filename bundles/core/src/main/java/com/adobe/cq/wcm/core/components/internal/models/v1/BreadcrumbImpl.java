@@ -19,8 +19,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+
 import javax.annotation.PostConstruct;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.models.annotations.Exporter;
@@ -31,16 +33,18 @@ import org.jetbrains.annotations.NotNull;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.Breadcrumb;
 import com.adobe.cq.wcm.core.components.models.NavigationItem;
 import com.day.cq.wcm.api.Page;
+import com.day.cq.wcm.api.components.Component;
 import com.day.cq.wcm.api.designer.Style;
 
 @Model(adaptables = SlingHttpServletRequest.class,
        adapters = {Breadcrumb.class, ComponentExporter.class},
        resourceType = {BreadcrumbImpl.RESOURCE_TYPE_V1, BreadcrumbImpl.RESOURCE_TYPE_V2})
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class BreadcrumbImpl implements Breadcrumb {
+public class BreadcrumbImpl extends AbstractComponentImpl implements Breadcrumb {
 
     protected static final String RESOURCE_TYPE_V1 = "core/wcm/components/breadcrumb/v1/breadcrumb";
     protected static final String RESOURCE_TYPE_V2 = "core/wcm/components/breadcrumb/v2/breadcrumb";
@@ -61,6 +65,9 @@ public class BreadcrumbImpl implements Breadcrumb {
     @Self
     private SlingHttpServletRequest request;
 
+    @Self
+    protected LinkHandler linkHandler;
+
     private boolean showHidden;
     private boolean hideCurrent;
     private int startLevel;
@@ -78,7 +85,7 @@ public class BreadcrumbImpl implements Breadcrumb {
         if (items == null) {
             items = createItems();
         }
-        return items;
+        return Collections.unmodifiableList(items);
     }
 
     @NotNull
@@ -92,19 +99,24 @@ public class BreadcrumbImpl implements Breadcrumb {
         int currentLevel = currentPage.getDepth();
         while (startLevel < currentLevel) {
             Page page = currentPage.getAbsoluteParent(startLevel);
-            if (page != null) {
+            if (page != null && page.getContentResource() != null) {
                 boolean isActivePage = page.equals(currentPage);
                 if (isActivePage && hideCurrent) {
                     break;
                 }
                 if (checkIfNotHidden(page)) {
-                    NavigationItem navigationItem = new BreadcrumbItemImpl(page, isActivePage, request, currentLevel, Collections.emptyList());
+                    NavigationItem navigationItem = newBreadcrumbItem(page, isActivePage, linkHandler, currentLevel,
+                            Collections.emptyList(), getId(), component);
                     items.add(navigationItem);
                 }
             }
             startLevel++;
         }
         return items;
+    }
+
+    protected NavigationItem newBreadcrumbItem(Page page, boolean active, @NotNull LinkHandler linkHandler, int level, List<NavigationItem> children, String parentId, Component component) {
+        return new BreadcrumbItemImpl(page, active, linkHandler, level, children, parentId, component);
     }
 
     private boolean checkIfNotHidden(Page page) {

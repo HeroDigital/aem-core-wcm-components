@@ -18,10 +18,12 @@ package com.adobe.cq.wcm.core.components.internal.models.v1;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.sling.api.SlingHttpServletRequest;
+import org.jetbrains.annotations.NotNull;
 
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.NavigationItem;
 import com.day.cq.wcm.api.Page;
+import com.day.cq.wcm.api.components.Component;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class NavigationItemImpl extends PageListItemImpl implements NavigationItem {
@@ -29,16 +31,21 @@ public class NavigationItemImpl extends PageListItemImpl implements NavigationIt
     protected List<NavigationItem> children = Collections.emptyList();
     protected int level;
     protected boolean active;
+    private boolean current;
 
-    public NavigationItemImpl(Page page, boolean active, SlingHttpServletRequest request, int level, List<NavigationItem> children) {
-        super(request, page);
+    public NavigationItemImpl(Page page, boolean active, boolean current, @NotNull LinkHandler linkHandler, int level,
+                              List<NavigationItem> children,
+                              String parentId, Component component) {
+        super(linkHandler, page, parentId, component);
         this.active = active;
+        this.current = current;
         this.level = level;
         this.children = children;
     }
 
     @Override
     @JsonIgnore
+    @Deprecated
     public Page getPage() {
         return page;
     }
@@ -46,6 +53,11 @@ public class NavigationItemImpl extends PageListItemImpl implements NavigationIt
     @Override
     public boolean isActive() {
         return active;
+    }
+
+    @Override
+    public boolean isCurrent() {
+        return current;
     }
 
     @Override
@@ -57,5 +69,4 @@ public class NavigationItemImpl extends PageListItemImpl implements NavigationIt
     public int getLevel() {
         return level;
     }
-
 }

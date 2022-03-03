@@ -15,6 +15,7 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.servlets;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -28,6 +29,7 @@ import org.apache.sling.commons.mime.MimeTypeService;
 import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
+import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -69,6 +71,9 @@ public class AdaptiveImageServletMappingConfigurationConsumer {
 
     @Reference
     private ConfigurationAdmin configurationAdmin;
+    
+    @Reference
+    AdaptiveImageServletMetrics metrics;
 
 
     /**
@@ -96,7 +101,7 @@ public class AdaptiveImageServletMappingConfigurationConsumer {
                     );
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException| InvalidSyntaxException|RuntimeException e) {
             LOG.error("Unable to retrieve previous configuration for the " + AdaptiveImageServlet.class.getName() + " component. " +
                     "The configuration, if it still exists, will not be reused to configure the defaultResizeWidth property of the " +
                     "servlet's registrations managed by this component.", e);
@@ -120,7 +125,7 @@ public class AdaptiveImageServletMappingConfigurationConsumer {
      * @param configurationFactory - {@link AdaptiveImageServletMappingConfigurationFactory} instance
      */
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, updated = "bindAdaptiveImageServletConfigurationFactory")
-    protected synchronized void bindAdaptiveImageServletConfigurationFactory(AdaptiveImageServletMappingConfigurationFactory configurationFactory, Map<String, ?> properties) {
+    protected  void bindAdaptiveImageServletConfigurationFactory(AdaptiveImageServletMappingConfigurationFactory configurationFactory, Map<String, ?> properties) {
         String servicePid = (String)properties.get(Constants.SERVICE_PID);
         applyValidConfiguration(configurationFactory, () -> {
             configs.put(servicePid, configurationFactory);
@@ -133,7 +138,7 @@ public class AdaptiveImageServletMappingConfigurationConsumer {
      *
      * @param configurationFactory - {@link AdaptiveImageServletMappingConfigurationFactory} instance
      */
-    protected synchronized void unbindAdaptiveImageServletConfigurationFactory(AdaptiveImageServletMappingConfigurationFactory configurationFactory, Map<String, ?> properties) {
+    protected  void unbindAdaptiveImageServletConfigurationFactory(AdaptiveImageServletMappingConfigurationFactory configurationFactory, Map<String, ?> properties) {
         String servicePid = (String)properties.get(Constants.SERVICE_PID);
         configs.remove(servicePid);
         updateServletRegistrations();
@@ -164,7 +169,9 @@ public class AdaptiveImageServletMappingConfigurationConsumer {
                                 new AdaptiveImageServlet(
                                         mimeTypeService,
                                         assetStore,
-                                        oldAISDefaultResizeWidth > 0 ? oldAISDefaultResizeWidth : config.getDefaultResizeWidth()),
+                                        metrics,
+                                        oldAISDefaultResizeWidth > 0 ? oldAISDefaultResizeWidth : config.getDefaultResizeWidth(),
+                                        config.getMaxSize()),
                                 properties
                         )
                 );

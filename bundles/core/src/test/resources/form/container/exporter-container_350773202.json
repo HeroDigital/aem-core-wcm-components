@@ -2,7 +2,8 @@
     "method"                 : "POST",
     "enctype"                : "multipart/form-data",
     "action"                 : "/core/content/coretest/demo-page.html",
-    "resourceTypeForDropArea": "core/wcm/components/form/container/v1/container/new",
+    "errorMessages"          : [],
+    "resourceTypeForDropArea": "wcm/foundation/components/responsivegrid/new",
     ":itemsOrder"            : [],
     ":type"                  : "core/wcm/components/form/container/v1/container",
     ":items"                 : {}

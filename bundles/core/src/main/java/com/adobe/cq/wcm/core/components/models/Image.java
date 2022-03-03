@@ -20,7 +20,8 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.osgi.annotation.versioning.ConsumerType;
 
-import com.adobe.cq.export.json.ComponentExporter;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.models.datalayer.ImageData;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
@@ -29,7 +30,22 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
  * @since com.adobe.cq.wcm.core.components.models 11.0.0
  */
 @ConsumerType
-public interface Image extends ComponentExporter {
+public interface Image extends Component {
+
+    /**
+     * Name of the resource property that will indicate if the image is inherited from the featured image of the page.
+     *
+     * @since com.adobe.cq.wcm.core.components.models 12.23.0
+     */
+    String PN_IMAGE_FROM_PAGE_IMAGE = "imageFromPageImage";
+
+    /**
+     * Name of the resource property that will indicate if the value of the {@code alt} attribute should be inherited
+     * from the featured image of the page.
+     *
+     * @since com.adobe.cq.wcm.core.components.models 12.23.0
+     */
+    String PN_ALT_VALUE_FROM_PAGE_IMAGE = "altValueFromPageImage";
 
     /**
      * Name of the configuration policy property that will store the allowed rendition widths for an image.
@@ -51,6 +67,12 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 11.0.0
      */
     String PN_DESIGN_LAZY_LOADING_ENABLED = "disableLazyLoading";
+
+    /**
+     * Name of the configuration policy property that indicate the number of pixels, in advance of becoming visible,
+     * that a lazy loading image should load.
+     */
+    String PN_DESIGN_LAZY_THRESHOLD = "lazyThreshold";
 
     /**
      * Name of the resource property that will indicate if the image is decorative.
@@ -131,14 +153,24 @@ public interface Image extends ComponentExporter {
     String PN_FLIP_VERTICAL = "imageFlipVertical";
 
     /**
+     * Name of the resource property that will indicate if the current image should has Image Modifiers settings.
+     */
+    String PN_IMAGE_MODIFIERS = "imageModifers";
+
+    /**
+     * Name of the resource property that will indicate imageServerUrl.
+     */
+    String PN_IMAGE_SERVER_URL = "imageServerUrl";
+
+    /**
      * Name of the resource property that defines areas of an image map.
-     *
+     * <p>
      * The property stores map areas as follows:
      * [area1][area2][...]
-     *
+     * <p>
      * Area format:
      * [SHAPE(COORDINATES)"HREF"|"TARGET"|"ALT"|(RELATIVE_COORDINATES)]
-     *
+     * <p>
      * Example:
      * [rect(0,0,10,10)"http://www.adobe.com"|"_self"|"alt"|(0,0,0.8,0.8)][circle(10,10,10)"http://www.adobe.com"|"_self"|"alt"|(0.8,0.8,0.8)]
      *
@@ -147,13 +179,25 @@ public interface Image extends ComponentExporter {
     String PN_MAP = "imageMap";
 
     /**
+     * Name of the configuration policy property that controls whether Dynamic Media features are used by Core component.
+     */
+    String PN_DESIGN_DYNAMIC_MEDIA_ENABLED = "enableDmFeatures";
+
+    /**
+     * Name of the configuration policy property that will be used for resizing the base images, the ones from {@code src} attribute.
+     *
+     * @since com.adobe.cq.wcm.core.components.models 12.23.0
+     */
+    String PN_DESIGN_RESIZE_WIDTH = "resizeWidth";
+
+    /**
      * Returns the value for the {@code src} attribute of the image.
      *
      * @return the image's URL
      * @since com.adobe.cq.wcm.core.components.models 11.0.0; marked <code>default</code> in 12.1.0
      */
     default String getSrc() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -163,7 +207,7 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 11.0.0; marked <code>default</code> in 12.1.0
      */
     default String getAlt() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -173,7 +217,7 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 11.0.0; marked <code>default</code> in 12.1.0
      */
     default String getTitle() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -183,7 +227,17 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0;
      */
     default String getUuid() {
-        throw new UnsupportedOperationException();
+        return null;
+    }
+
+    /**
+     * Returns the image's link.
+     *
+     * @return the image's link.
+     * @since com.adobe.cq.wcm.core.components.models 12.20.0
+     */
+    default Link getImageLink() {
+        return null;
     }
 
     /**
@@ -191,9 +245,11 @@ public interface Image extends ComponentExporter {
      *
      * @return the image's link URL, if one was set, or {@code null}
      * @since com.adobe.cq.wcm.core.components.models 11.0.0; marked <code>default</code> in 12.1.0
+     * @deprecated Please use {@link #getImageLink()}
      */
+    @Deprecated
     default String getLink() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -204,7 +260,7 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 11.0.0; marked <code>default</code> in 12.1.0
      */
     default boolean displayPopupTitle() {
-        throw new UnsupportedOperationException();
+        return false;
     }
 
     /**
@@ -215,7 +271,7 @@ public interface Image extends ComponentExporter {
      */
     @JsonIgnore
     default String getFileReference() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -234,7 +290,7 @@ public interface Image extends ComponentExporter {
     @Deprecated
     @JsonIgnore
     default String getJson() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -246,7 +302,7 @@ public interface Image extends ComponentExporter {
      */
     @NotNull
     default int[] getWidths() {
-        throw new UnsupportedOperationException();
+        return new int[]{};
     }
 
     /**
@@ -257,7 +313,7 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.2.0
      */
     default String getSrcUriTemplate() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -267,7 +323,49 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.2.0
      */
     default boolean isLazyEnabled() {
-        throw new UnsupportedOperationException();
+        return false;
+    }
+
+    /**
+     * Returns the value for the {@code srcset} html attribute of the image.
+     *
+     * @return the value of the {@code srcset} attribute, if one was set, or {@code null}.
+     * @since com.adobe.cq.wcm.core.components.models 12.21.0
+     */
+    default String getSrcset() {
+        return null;
+    }
+
+    /**
+     * Returns the width of the base DAM asset image, the one from the {@code src} attribute.
+     * It will be used as value for the {@code width} attribute of the image, only if the image is a DAM asset and is not SVG.
+     *
+     * @return the width of the base DAM asset image, the one from the {@code src} attribute.
+     * @since com.adobe.cq.wcm.core.components.models 12.21.0;
+     */
+    default String getWidth() {
+        return null;
+    }
+
+    /**
+     * Returns the height of the base DAM asset image, the one from the {@code src} attribute.
+     * It will be used as value for the {@code height} attribute of the image, only if the image is a DAM asset and is not SVG.
+     *
+     * @return the height of the base DAM asset image, the one from the {@code src} attribute.
+     * @since com.adobe.cq.wcm.core.components.models 12.21.0;
+     */
+    default String getHeight() {
+        return null;
+    }
+
+    /**
+     * Returns the number of pixels in advance of an image becoming visible that a lazy
+     * loading image should load.
+     *
+     * @return The number of pixels.
+     */
+    default int getLazyThreshold() {
+        return 0;
     }
 
     /**
@@ -277,17 +375,29 @@ public interface Image extends ComponentExporter {
      * @since com.adobe.cq.wcm.core.components.models 12.4.0
      */
     default List<ImageArea> getAreas() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
-     * @see ComponentExporter#getExportedType()
-     * @since com.adobe.cq.wcm.core.components.models 12.2.0
+     * Indicates whether the image is decorative.
+     *
+     * @return true if the image is decorative; false otherwise
+     * @since com.adobe.cq.wcm.core.components.models 12.11.0
      */
-    @NotNull
-    @Override
-    default String getExportedType() {
-        throw new UnsupportedOperationException();
+    default boolean isDecorative() {
+        return false;
+    }
+
+    default String getSmartCropRendition() {
+        return null;
+    }
+
+    default boolean isDmImage() {
+        return false;
+    }
+
+    default ImageData getComponentData() {
+        return null;
     }
 
 }

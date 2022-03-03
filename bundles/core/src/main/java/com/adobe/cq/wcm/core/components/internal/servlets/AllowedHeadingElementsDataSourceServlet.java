@@ -67,14 +67,14 @@ public class AllowedHeadingElementsDataSourceServlet extends SlingSafeMethodsSer
         ResourceResolver resolver = request.getResourceResolver();
         Resource contentResource = resolver.getResource((String) request.getAttribute(Value.CONTENTPATH_ATTRIBUTE));
         ContentPolicyManager policyManager = resolver.adaptTo(ContentPolicyManager.class);
-        if (policyManager != null) {
+        if (contentResource != null && policyManager != null) {
             ContentPolicy policy = policyManager.getPolicy(contentResource);
             if (policy != null) {
                 ValueMap props = policy.getProperties();
                 if (props != null) {
                     String[] headingElements = props.get(PN_ALLOWED_HEADING_ELEMENTS, String[].class);
                     String[] allowedTypes = props.get(PN_ALLOWED_TYPES, String[].class);
-                    String defaultHeadingElement = props.get(PN_DEFAULT_HEADING_ELEMENT, props.get(PN_DEFAULT_TYPE, String.class));
+                    String defaultHeadingElement = props.get(PN_DEFAULT_HEADING_ELEMENT, props.get(PN_DEFAULT_TYPE, StringUtils.EMPTY));
                     if (headingElements == null || headingElements.length == 0) {
                         headingElements = allowedTypes;
                     }
@@ -102,7 +102,7 @@ public class AllowedHeadingElementsDataSourceServlet extends SlingSafeMethodsSer
         }
 
         @Override
-        protected String getText() {
+        public String getText() {
             Heading heading = Heading.getHeading(elementName);
             if (heading != null) {
                 return heading.getElement();
@@ -111,12 +111,12 @@ public class AllowedHeadingElementsDataSourceServlet extends SlingSafeMethodsSer
         }
 
         @Override
-        protected String getValue() {
+        public String getValue() {
             return elementName;
         }
 
         @Override
-        protected boolean getSelected() {
+        public boolean getSelected() {
             return selected;
         }
     }

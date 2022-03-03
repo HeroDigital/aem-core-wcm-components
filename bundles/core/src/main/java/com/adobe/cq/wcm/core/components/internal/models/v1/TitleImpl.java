@@ -16,8 +16,11 @@
 
 package com.adobe.cq.wcm.core.components.internal.models.v1;
 
+import java.util.Optional;
+
 import javax.annotation.PostConstruct;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.Resource;
@@ -28,11 +31,16 @@ import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
-import com.adobe.cq.wcm.core.components.internal.Utils;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.Heading;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.models.Title;
+import com.adobe.cq.wcm.core.components.models.datalayer.ComponentData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.wcm.api.Page;
 import com.day.cq.wcm.api.PageManager;
@@ -43,7 +51,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
        adapters = {Title.class, ComponentExporter.class},
        resourceType = {TitleImpl.RESOURCE_TYPE_V1, TitleImpl.RESOURCE_TYPE_V2})
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class TitleImpl implements Title {
+public class TitleImpl extends AbstractComponentImpl implements Title {
 
     protected static final String RESOURCE_TYPE_V1 = "core/wcm/components/title/v1/title";
     protected static final String RESOURCE_TYPE_V2 = "core/wcm/components/title/v2/title";
@@ -64,21 +72,25 @@ public class TitleImpl implements Title {
 
     @ScriptVariable(injectionStrategy = InjectionStrategy.OPTIONAL)
     @JsonIgnore
+    @Nullable
     private Style currentStyle;
 
-    @ValueMapValue(optional = true, name = JcrConstants.JCR_TITLE)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL, name = JcrConstants.JCR_TITLE)
+    @Nullable
     private String title;
 
-    @ValueMapValue(optional = true)
+    @ValueMapValue(injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String type;
 
-    @ValueMapValue(optional = true)
-    private String linkURL;
+    @Self
+    private LinkHandler linkHandler;
+    protected Optional<Link> link;
 
     /**
-     * The {@link com.adobe.cq.wcm.core.components.internal.Utils.Heading} object for the type of this title.
+     * The {@link com.adobe.cq.wcm.core.components.internal.Heading} object for the type of this title.
      */
-    private Utils.Heading heading;
+    private Heading heading;
 
     @PostConstruct
     private void initModel() {
@@ -87,17 +99,13 @@ public class TitleImpl implements Title {
         }
 
         if (heading == null) {
-            heading = Utils.Heading.getHeading(type);
+            heading = Heading.getHeading(type);
             if (heading == null && currentStyle != null) {
-                heading = Utils.Heading.getHeading(currentStyle.get(PN_DESIGN_DEFAULT_TYPE, String.class));
+                heading = Heading.getHeading(currentStyle.get(PN_DESIGN_DEFAULT_TYPE, String.class));
             }
         }
 
-        if (StringUtils.isNotEmpty(linkURL)) {
-            linkURL = Utils.getURL(request, pageManager, linkURL);
-        } else {
-            linkURL = null;
-        }
+        link = linkHandler.getLink(resource);
 
         if(currentStyle != null) {
             linkDisabled = currentStyle.get(Title.PN_TITLE_LINK_DISABLED, linkDisabled);
@@ -118,8 +126,14 @@ public class TitleImpl implements Title {
     }
 
     @Override
+    @Deprecated
     public String getLinkURL() {
-        return linkURL;
+        return link.map(Link::getURL).orElse(null);
+    }
+
+    @Override
+    public Link getLink() {
+        return link.orElse(null);
     }
 
     @Override
@@ -133,4 +147,12 @@ public class TitleImpl implements Title {
         return resource.getResourceType();
     }
 
+    @Override
+    @NotNull
+    protected ComponentData getComponentData() {
+        return DataLayerBuilder.extending(super.getComponentData()).asComponent()
+            .withTitle(this::getText)
+            .withLinkUrl(() -> link.map(Link::getMappedURL).orElse(null))
+            .build();
+    }
 }

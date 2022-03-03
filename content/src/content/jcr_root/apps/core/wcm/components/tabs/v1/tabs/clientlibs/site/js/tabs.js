@@ -13,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+/* global
+    CQ
+ */
 (function() {
     "use strict";
+
+    var dataLayerEnabled;
+    var dataLayer;
 
     var NS = "cmp";
     var IS = "tabs";
@@ -29,7 +35,7 @@
     };
 
     var selectors = {
-        self: "[data-" +  NS + '-is="' + IS + '"]',
+        self: "[data-" + NS + '-is="' + IS + '"]',
         active: {
             tab: "cmp-tabs__tab--active",
             tabpanel: "cmp-tabs__tabpanel--active"
@@ -65,6 +71,8 @@
          * @param {TabsConfig} config The Tabs configuration
          */
         function init(config) {
+            that._config = config;
+
             // prevents multiple initialization
             config.element.removeAttribute("data-" + NS + "-is");
 
@@ -76,6 +84,15 @@
                 bindEvents();
             }
 
+            // Show the tab based on deep-link-id if it matches with any existing tab item id
+            var deepLinkItemIdx = CQ.CoreComponents.container.utils.getDeepLinkItemIdx(that, "tab");
+            if (deepLinkItemIdx && deepLinkItemIdx !== -1) {
+                var deepLinkItem = that._elements["tab"][deepLinkItemIdx];
+                if (deepLinkItem && that._elements["tab"][that._active].id !== deepLinkItem.id) {
+                    navigateAndFocusTab(deepLinkItemIdx);
+                }
+            }
+
             if (window.Granite && window.Granite.author && window.Granite.author.MessageChannel) {
                 /*
                  * Editor message handling:
@@ -83,7 +100,8 @@
                  * - check that the message data panel container type is correct and that the id (path) matches this specific Tabs component
                  * - if so, route the "navigate" operation to enact a navigation of the Tabs based on index data
                  */
-                new window.Granite.author.MessageChannel("cqauthor", window).subscribeRequestMessage("cmp.panelcontainer", function(message) {
+                CQ.CoreComponents.MESSAGE_CHANNEL = CQ.CoreComponents.MESSAGE_CHANNEL || new window.Granite.author.MessageChannel("cqauthor", window);
+                CQ.CoreComponents.MESSAGE_CHANNEL.subscribeRequestMessage("cmp.panelcontainer", function(message) {
                     if (message.data && message.data.type === "cmp-tabs" && message.data.id === that._elements.self.dataset["cmpPanelcontainerId"]) {
                         if (message.data.operation === "navigate") {
                             navigate(message.data.index);
@@ -263,8 +281,53 @@
          * @param {Number} index The index of the item to navigate to
          */
         function navigateAndFocusTab(index) {
+            var exActive = that._active;
             navigate(index);
             focusWithoutScroll(that._elements["tab"][index]);
+
+            if (dataLayerEnabled) {
+
+                var activeItem = getDataLayerId(that._elements.tabpanel[index]);
+                var exActiveItem = getDataLayerId(that._elements.tabpanel[exActive]);
+
+                dataLayer.push({
+                    event: "cmp:show",
+                    eventInfo: {
+                        path: "component." + activeItem
+                    }
+                });
+
+                dataLayer.push({
+                    event: "cmp:hide",
+                    eventInfo: {
+                        path: "component." + exActiveItem
+                    }
+                });
+
+                var tabsId = that._elements.self.id;
+                var uploadPayload = { component: {} };
+                uploadPayload.component[tabsId] = { shownItems: [activeItem] };
+
+                var removePayload = { component: {} };
+                removePayload.component[tabsId] = { shownItems: undefined };
+
+                dataLayer.push(removePayload);
+                dataLayer.push(uploadPayload);
+            }
+        }
+    }
+
+    /**
+     * Scrolls the browser when the URI fragment is changed to the item of the container Tab component that corresponds to the deep link in the URI fragment,
+       and displays its content.
+     */
+    function onHashChange() {
+        if (location.hash && location.hash !== "#") {
+            var anchorLocation = decodeURIComponent(location.hash);
+            var anchorElement = document.querySelector(anchorLocation);
+            if (anchorElement && anchorElement.classList.contains("cmp-tabs__tab") && !anchorElement.classList.contains("cmp-tabs__tab--active")) {
+                anchorElement.click();
+            }
         }
     }
 
@@ -301,11 +364,29 @@
     }
 
     /**
+     * Parses the dataLayer string and returns the ID
+     *
+     * @private
+     * @param {HTMLElement} item the accordion item
+     * @returns {String} dataLayerId or undefined
+     */
+    function getDataLayerId(item) {
+        if (item && item.dataset.cmpDataLayer) {
+            return Object.keys(JSON.parse(item.dataset.cmpDataLayer))[0];
+        } else {
+            return item.id;
+        }
+    }
+
+    /**
      * Document ready handler and DOM mutation observers. Initializes Tabs components as necessary.
      *
      * @private
      */
     function onDocumentReady() {
+        dataLayerEnabled = document.body.hasAttribute("data-cmp-data-layer-enabled");
+        dataLayer = (dataLayerEnabled) ? window.adobeDataLayer = window.adobeDataLayer || [] : undefined;
+
         var elements = document.querySelectorAll(selectors.self);
         for (var i = 0; i < elements.length; i++) {
             new Tabs({ element: elements[i], options: readData(elements[i]) });
@@ -342,5 +423,8 @@
     } else {
         document.addEventListener("DOMContentLoaded", onDocumentReady);
     }
+
+    window.addEventListener("load", window.CQ.CoreComponents.container.utils.scrollToAnchor, false);
+    window.addEventListener("hashchange", onHashChange, false);
 
 }());

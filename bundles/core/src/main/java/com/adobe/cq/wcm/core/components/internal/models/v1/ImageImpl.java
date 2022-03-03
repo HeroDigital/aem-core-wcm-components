@@ -18,14 +18,17 @@ package com.adobe.cq.wcm.core.components.internal.models.v1;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Calendar;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
 
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharEncoding;
 import org.apache.commons.lang3.StringUtils;
@@ -39,19 +42,21 @@ import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.sling.models.annotations.Exporter;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.Source;
-import org.apache.sling.models.annotations.injectorspecific.InjectionStrategy;
 import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
-import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
-import com.adobe.cq.wcm.core.components.internal.Utils;
+import com.adobe.cq.wcm.core.components.commons.link.Link;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.internal.servlets.AdaptiveImageServlet;
 import com.adobe.cq.wcm.core.components.models.Image;
+import com.adobe.cq.wcm.core.components.models.datalayer.ImageData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.AssetDataBuilder;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 import com.day.cq.commons.DownloadResource;
 import com.day.cq.commons.ImageResource;
 import com.day.cq.commons.jcr.JcrConstants;
@@ -63,9 +68,12 @@ import com.day.cq.wcm.api.Template;
 import com.day.cq.wcm.api.designer.Style;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import static com.day.cq.commons.jcr.JcrConstants.JCR_CONTENT;
+import static com.day.cq.commons.jcr.JcrConstants.JCR_MIMETYPE;
+
 @Model(adaptables = SlingHttpServletRequest.class, adapters = {Image.class, ComponentExporter.class}, resourceType = ImageImpl.RESOURCE_TYPE)
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME, extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class ImageImpl implements Image {
+public class ImageImpl extends AbstractComponentImpl implements Image {
 
     public static final String RESOURCE_TYPE = "core/wcm/components/image/v1/image";
     private static final String DEFAULT_EXTENSION = "jpeg";
@@ -76,39 +84,26 @@ public class ImageImpl implements Image {
     protected static final String MIME_TYPE_IMAGE_SVG = "image/svg+xml";
     private static final String MIME_TYPE_IMAGE_PREFIX = "image/";
 
-    @Self
-    protected SlingHttpServletRequest request;
-
-    @Inject
-    protected Resource resource;
-
     @ScriptVariable
     protected PageManager pageManager;
 
     @ScriptVariable
-    private Page currentPage;
+    protected Page currentPage;
 
     @ScriptVariable
     protected Style currentStyle;
-
-    @ScriptVariable
-    protected ValueMap properties;
 
     @Inject
     @Source("osgi-services")
     protected MimeTypeService mimeTypeService;
 
-    @ValueMapValue(name = DownloadResource.PN_REFERENCE, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Self
+    protected LinkHandler linkHandler;
+
+    protected ValueMap properties;
     protected String fileReference;
-
-    @ValueMapValue(name = ImageResource.PN_ALT, injectionStrategy = InjectionStrategy.OPTIONAL)
     protected String alt;
-
-    @ValueMapValue(name = JcrConstants.JCR_TITLE, injectionStrategy = InjectionStrategy.OPTIONAL)
     protected String title;
-
-    @ValueMapValue(name = ImageResource.PN_LINK_URL, injectionStrategy = InjectionStrategy.OPTIONAL)
-    private String linkURL;
 
     protected String src;
     protected String[] smartImages = new String[]{};
@@ -128,9 +123,21 @@ public class ImageImpl implements Image {
     protected boolean disableLazyLoading;
     protected int jpegQuality;
     protected String imageName;
+    protected Resource fileResource;
+    protected Optional<Link> link;
 
     public ImageImpl() {
         selector = AdaptiveImageServlet.DEFAULT_SELECTOR;
+    }
+
+    /**
+     * Initializes the resource:
+     * - for Image v1 and v2 the resource is the current resource
+     * - for Image v3 which supports inheritance from the featured image of the linked page or of the current page,
+     * the current resource is wrapped and augmented with the inherited properties and child resources of the featured image.
+     */
+    protected void initResource() {
+        // do nothing for image v1
     }
 
     /**
@@ -140,10 +147,21 @@ public class ImageImpl implements Image {
      */
     @PostConstruct
     protected void initModel() {
+        initResource();
+        // Note: all the properties and child resources of the image should be retrieved through the wrapped 'resource' object
+        // and not through the injected properties of the model.
+        properties = resource.getValueMap();
+        fileResource = resource.getChild(DownloadResource.NN_FILE);
+        fileReference = properties.get(DownloadResource.PN_REFERENCE, String.class);
+        alt = properties.get(ImageResource.PN_ALT, String.class);
+        title = properties.get(JcrConstants.JCR_TITLE, String.class);
+        link = Optional.empty();
+
         mimeType = MIME_TYPE_IMAGE_JPEG;
         displayPopupTitle = properties.get(PN_DISPLAY_POPUP_TITLE, currentStyle.get(PN_DISPLAY_POPUP_TITLE, false));
         isDecorative = properties.get(PN_IS_DECORATIVE, currentStyle.get(PN_IS_DECORATIVE, false));
         Asset asset = null;
+
         if (StringUtils.isNotEmpty(fileReference)) {
             // the image is coming from DAM
             final Resource assetResource = request.getResourceResolver().getResource(fileReference);
@@ -151,7 +169,7 @@ public class ImageImpl implements Image {
                 asset = assetResource.adaptTo(Asset.class);
                 if (asset != null) {
                     mimeType = PropertiesUtil.toString(asset.getMimeType(), MIME_TYPE_IMAGE_JPEG);
-                    imageName = getImageNameFromDam();
+                    imageName = getImageNameFromDam(fileReference);
                     hasContent = true;
                 } else {
                     LOGGER.error("Unable to adapt resource '{}' used by image '{}' to an asset.", fileReference, resource.getPath());
@@ -160,9 +178,15 @@ public class ImageImpl implements Image {
                 LOGGER.error("Unable to find resource '{}' used by image '{}'.", fileReference, resource.getPath());
             }
         } else {
-            Resource file = resource.getChild(DownloadResource.NN_FILE);
-            if (file != null) {
-                mimeType = PropertiesUtil.toString(file.getResourceMetadata().get(ResourceMetadata.CONTENT_TYPE), MIME_TYPE_IMAGE_JPEG);
+            if (fileResource != null) {
+                mimeType = PropertiesUtil.toString(fileResource.getResourceMetadata().get(ResourceMetadata.CONTENT_TYPE), null);
+                if (StringUtils.isEmpty(mimeType)) {
+                    Resource fileResourceContent = fileResource.getChild(JCR_CONTENT);
+                    if (fileResourceContent != null) {
+                        ValueMap fileProperties = fileResourceContent.getValueMap();
+                        mimeType = fileProperties.get(JCR_MIMETYPE, MIME_TYPE_IMAGE_JPEG);
+                    }
+                }
                 String fileName = properties.get(ImageResource.PN_FILE_NAME, String.class);
                 imageName = StringUtils.isNotEmpty(fileName) ? getSeoFriendlyName(FilenameUtils.getBaseName(fileName)) : "";
                 hasContent = true;
@@ -180,7 +204,6 @@ public class ImageImpl implements Image {
             // Check for the suffix and remove as necessary.
             mimeType = mimeType.split(";")[0];
             extension = mimeTypeService.getExtension(mimeType);
-            ValueMap properties = resource.getValueMap();
             Calendar lastModified = properties.get(JcrConstants.JCR_LASTMODIFIED, Calendar.class);
             if (lastModified == null) {
                 lastModified = properties.get(NameConstants.PN_PAGE_LAST_MOD, Calendar.class);
@@ -215,10 +238,10 @@ public class ImageImpl implements Image {
                 smartSizes = new int[supportedRenditionWidths.size()];
                 for (Integer width : supportedRenditionWidths) {
                     smartImages[index] = baseResourcePath + DOT +
-                        selector + DOT + jpegQuality + DOT + width + DOT + extension +
-                        (inTemplate ? Text.escapePath(templateRelativePath) : "") +
-                        (lastModifiedDate > 0 ? "/" + lastModifiedDate +
-                        (StringUtils.isNotBlank(imageName) ? "/" + imageName : "") + DOT + extension : "");
+                            selector + DOT + jpegQuality + DOT + width + DOT + extension +
+                            (inTemplate ? Text.escapePath(templateRelativePath) : "") +
+                            (lastModifiedDate > 0 ? ("/" + lastModifiedDate + (StringUtils.isNotBlank(imageName) ? ("/" + imageName) : "")) : "") +
+                            (inTemplate || lastModifiedDate > 0 ? DOT + extension : "");
                     smartSizes[index] = width;
                     index++;
                 }
@@ -232,14 +255,12 @@ public class ImageImpl implements Image {
             } else {
                 src += extension;
             }
-            src += (inTemplate ? Text.escapePath(templateRelativePath) : "") + (lastModifiedDate > 0 ? "/" + lastModifiedDate +
-                (StringUtils.isNotBlank(imageName) ? "/" + imageName : "") + DOT + extension : "");
+            src += (inTemplate ? Text.escapePath(templateRelativePath) : "") +
+                    (lastModifiedDate > 0 ? ("/" + lastModifiedDate + (StringUtils.isNotBlank(imageName) ? ("/" + imageName): "")) : "") +
+                    (inTemplate || lastModifiedDate > 0 ? DOT + extension : "");
             if (!isDecorative) {
-                if (StringUtils.isNotEmpty(linkURL)) {
-                    linkURL = Utils.getURL(request, pageManager, linkURL);
-                }
+                link = linkHandler.getLink(resource);
             } else {
-                linkURL = null;
                 alt = null;
             }
             buildJson();
@@ -251,14 +272,15 @@ public class ImageImpl implements Image {
      *
      * @return image name from DAM
      */
-    protected String getImageNameFromDam() {
-        String imageName = "";
-        Resource damResource = request.getResourceResolver().getResource(fileReference);
-        if (damResource != null) {
-            Asset asset = damResource.adaptTo(Asset.class);
-            imageName = asset != null ? StringUtils.trimToNull(asset.getName()) : "";
-        }
-        return getSeoFriendlyName(FilenameUtils.getBaseName(imageName));
+    protected String getImageNameFromDam(String fileReference) {
+        return Optional.ofNullable(fileReference)
+            .map(reference -> request.getResourceResolver().getResource(reference))
+            .map(damResource -> damResource.adaptTo(Asset.class))
+            .map(Asset::getName)
+            .map(StringUtils::trimToNull)
+            .map(FilenameUtils::getBaseName)
+            .map(this::getSeoFriendlyName)
+            .orElse(StringUtils.EMPTY);
     }
 
     /**
@@ -267,7 +289,7 @@ public class ImageImpl implements Image {
      * {@code application/x-www-form-urlencoded} format using {@code utf-8} encoding
      * scheme.
      *
-     * @param imageName
+     * @param imageName The image name
      * @return the SEO friendly image name
      */
     protected String getSeoFriendlyName(String imageName) {
@@ -278,7 +300,7 @@ public class ImageImpl implements Image {
         try {
             seoFriendlyName = URLEncoder.encode(seoFriendlyName, CharEncoding.UTF_8);
         } catch (UnsupportedEncodingException e) {
-            LOGGER.error(String.format("The Character Encoding is not supported."));
+            LOGGER.error("The Character Encoding is not supported.");
         }
         return seoFriendlyName;
     }
@@ -306,7 +328,7 @@ public class ImageImpl implements Image {
 
     @Override
     public String getLink() {
-        return linkURL;
+        return link == null ? null : link.map(Link::getURL).orElse(null);
     }
 
     @Override
@@ -317,6 +339,7 @@ public class ImageImpl implements Image {
 
     @Override
     @JsonIgnore
+    @Deprecated
     public String getJson() {
         return json;
     }
@@ -327,6 +350,13 @@ public class ImageImpl implements Image {
         return resource.getResourceType();
     }
 
+    @Override
+    @JsonIgnore
+    public boolean isDecorative() {
+        return this.isDecorative;
+    }
+
+    @SuppressWarnings("squid:CallToDeprecatedMethod")
     protected void buildJson() {
         JsonArrayBuilder smartSizesJsonBuilder = Json.createArrayBuilder();
         for (int size : smartSizes) {
@@ -359,6 +389,31 @@ public class ImageImpl implements Image {
     private boolean smartSizesSupported() {
         // "smart sizes" is supported for all images except SVG
         return !StringUtils.equals(mimeType, MIME_TYPE_IMAGE_SVG);
+    }
+
+    /*
+     * DataLayer specific methods
+     */
+
+    @Override
+    @JsonIgnore
+    @NotNull
+    public ImageData getComponentData() {
+        return getComponentData(fileReference);
+    }
+
+    protected ImageData getComponentData(String fileReference) {
+        return DataLayerBuilder.extending(super.getComponentData()).asImageComponent()
+                .withTitle(this::getTitle)
+                .withLinkUrl(() -> link.map(Link::getMappedURL).orElse(null))
+                .withAssetData(() ->
+                        Optional.ofNullable(fileReference)
+                                .map(reference -> this.request.getResourceResolver().getResource(reference))
+                                .map(assetResource -> assetResource.adaptTo(Asset.class))
+                                .map(DataLayerBuilder::forAsset)
+                                .map(AssetDataBuilder::build)
+                                .orElse(null))
+                .build();
     }
 
 }

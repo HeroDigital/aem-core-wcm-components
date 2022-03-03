@@ -21,20 +21,25 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.models.impl.ResourceTypeBasedResourcePicker;
 import org.apache.sling.models.spi.ImplementationPicker;
 import org.apache.sling.testing.mock.sling.ResourceResolverType;
 
 import com.adobe.cq.export.json.SlingModelFilter;
+import com.adobe.cq.wcm.core.components.internal.link.DefaultPathProcessor;
+import com.adobe.cq.wcm.core.components.testing.MockExternalizerFactory;
 import com.adobe.cq.wcm.core.components.testing.MockResponsiveGrid;
 import com.adobe.cq.wcm.core.components.testing.MockSlingModelFilter;
+import com.day.cq.commons.Externalizer;
 import com.day.cq.wcm.api.NameConstants;
 import com.day.cq.wcm.msm.api.MSMNameConstants;
-import io.wcm.testing.mock.aem.junit.AemContext;
-import io.wcm.testing.mock.aem.junit.AemContextCallback;
+import com.google.common.collect.ImmutableMap;
+import io.wcm.testing.mock.aem.junit5.AemContext;
 import io.wcm.testing.mock.aem.junit5.AemContextBuilder;
+
+import static org.apache.sling.testing.mock.caconfig.ContextPlugins.CACONFIG;
 
 /**
  * Provides a context for unit tests.
@@ -42,70 +47,57 @@ import io.wcm.testing.mock.aem.junit5.AemContextBuilder;
 public final class CoreComponentTestContext {
 
     public static final String TEST_CONTENT_JSON = "/test-content.json";
+    public static final String TEST_TAGS_JSON = "/test-tags.json";
+    public static final String TEST_CONTENT_DAM_JSON = "/test-content-dam.json";
     public static final String TEST_APPS_JSON = "/test-apps.json";
+    public static final String TEST_CONF_JSON = "/test-conf.json";
 
 
     private CoreComponentTestContext() {
         // only static methods
     }
 
-    public static AemContext createContext() {
-        return createContext(null, null);
-    }
+    private static final ImmutableMap<String, Object> PROPERTIES =
+            ImmutableMap.of("resource.resolver.mapping", ArrayUtils.toArray(
+                    "/:/",
+                    "^/content/links/site1/(.+)</content/site1/$1"
+            ));
 
-    /**
-     * Creates a new instance of {@link AemContext}, adds the project specific Sling Models and loads test data from the JSON file
-     * "/test-content.json" in the current classpath
-     *
-     * @param testBase    Prefix of the classpath resource to load test data from. Optional, can be null. If null, test data will be
-     *                    loaded from /test-content.json
-     * @param contentRoot Path to import the JSON content to
-     * @return New instance of {@link AemContext}
-     */
-    public static AemContext createContext(final String testBase, final String contentRoot) {
-        return new AemContext(
-                (AemContextCallback) context -> {
+    public static AemContext newAemContext() {
+        return new AemContextBuilder()
+                .plugin(CACONFIG)
+                .resourceResolverType(ResourceResolverType.JCR_MOCK)
+                .resourceResolverFactoryActivatorProps(PROPERTIES)
+            .<AemContext>afterSetUp(context -> {
+                    context.addModelsForClasses(MockResponsiveGrid.class);
+                    context.addModelsForPackage("com.adobe.cq.wcm.core.components.models");
+                    context.addModelsForPackage("com.adobe.cq.wcm.core.components.internal.link");
+                    context.registerService(SlingModelFilter.class, new MockSlingModelFilter() {
+                        private final Set<String> IGNORED_NODE_NAMES = new HashSet<String>() {{
+                            add(NameConstants.NN_RESPONSIVE_CONFIG);
+                            add(MSMNameConstants.NT_LIVE_SYNC_CONFIG);
+                            add("cq:annotations");
+                        }};
+
+                        @Override
+                        public Map<String, Object> filterProperties(Map<String, Object> map) {
+                            return map;
+                        }
+
+                        @Override
+                        public Iterable<Resource> filterChildResources(Iterable<Resource> childResources) {
+                            return StreamSupport
+                                .stream(childResources.spliterator(), false)
+                                .filter(r -> !IGNORED_NODE_NAMES.contains(r.getName()))
+                                .collect(Collectors.toList());
+                        }
+                    });
                     context.registerService(ImplementationPicker.class, new ResourceTypeBasedResourcePicker());
-                    if (testBase != null) {
-                        if (StringUtils.isNotEmpty(testBase)) {
-                            context.load().json(testBase + TEST_CONTENT_JSON, contentRoot);
-                        } else {
-                            context.load().json(TEST_CONTENT_JSON, contentRoot);
-                        }
-                    }
-                },
-                ResourceResolverType.JCR_MOCK
-        );
-    }
-
-    public static io.wcm.testing.mock.aem.junit5.AemContext newAemContext() {
-        return new AemContextBuilder().resourceResolverType(ResourceResolverType.JCR_MOCK)
-                .<io.wcm.testing.mock.aem.junit5.AemContext>afterSetUp(context -> {
-                            context.addModelsForClasses(MockResponsiveGrid.class);
-                            context.addModelsForPackage("com.adobe.cq.wcm.core.components.models");
-                            context.registerService(SlingModelFilter.class, new MockSlingModelFilter() {
-                                private final Set<String> IGNORED_NODE_NAMES = new HashSet<String>() {{
-                                    add(NameConstants.NN_RESPONSIVE_CONFIG);
-                                    add(MSMNameConstants.NT_LIVE_SYNC_CONFIG);
-                                    add("cq:annotations");
-                                }};
-
-                                @Override
-                                public Map<String, Object> filterProperties(Map<String, Object> map) {
-                                    return map;
-                                }
-
-                                @Override
-                                public Iterable<Resource> filterChildResources(Iterable<Resource> childResources) {
-                                    return StreamSupport
-                                            .stream(childResources.spliterator(), false)
-                                            .filter(r -> !IGNORED_NODE_NAMES.contains(r.getName()))
-                                            .collect(Collectors.toList());
-                                }
-                            });
-                            context.registerService(ImplementationPicker.class, new ResourceTypeBasedResourcePicker());
-                        }
-                )
-                .build();
+                    context.registerService(Externalizer.class, MockExternalizerFactory.getExternalizerService());
+                    context.registerInjectActivateService(new DefaultPathProcessor(), ImmutableMap.of(
+                            "vanityConfig", DefaultPathProcessor.VanityConfig.ALWAYS.getValue()));
+                }
+            )
+            .build();
     }
 }

@@ -20,6 +20,7 @@ Title component written in HTL, allowing to define a section heading.
 ## Features
 
 * In-place editing
+* Automatic reading of the page title from the current page, if no title text is defined
 * HTML element configuration (`h1` - `h6`)
 * Styles
 
@@ -30,6 +31,7 @@ The Title component uses the `com.adobe.cq.wcm.core.components.models.Title` Sli
 The following configuration properties are used:
 
 1. `./type` - defines the default HTML heading element type (`h1` - `h6`) this component will use for its rendering
+2. `./id` - defines the component HTML ID attribute.
 
 ### Edit Dialog Properties
 The following properties are written to JCR for this Title component and are expected to be available as `Resource` properties:

@@ -15,9 +15,12 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v1.contentfragment;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
@@ -42,8 +45,13 @@ import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ContainerExporter;
 import com.adobe.cq.export.json.ExporterConstants;
 import com.adobe.cq.wcm.core.components.internal.ContentFragmentUtils;
+import com.adobe.cq.wcm.core.components.util.AbstractComponentImpl;
+import com.adobe.cq.wcm.core.components.internal.models.v1.datalayer.ContentFragmentDataImpl;
 import com.adobe.cq.wcm.core.components.models.contentfragment.ContentFragment;
 import com.adobe.cq.wcm.core.components.models.contentfragment.DAMContentFragment;
+import com.adobe.cq.wcm.core.components.models.datalayer.ComponentData;
+import com.adobe.cq.wcm.core.components.models.datalayer.ContentFragmentData;
+import com.adobe.cq.wcm.core.components.models.datalayer.builder.DataLayerBuilder;
 
 @Model(
         adaptables = SlingHttpServletRequest.class,
@@ -57,7 +65,7 @@ import com.adobe.cq.wcm.core.components.models.contentfragment.DAMContentFragmen
 )
 @Exporter(name = ExporterConstants.SLING_MODEL_EXPORTER_NAME,
           extensions = ExporterConstants.SLING_MODEL_EXTENSION)
-public class ContentFragmentImpl implements ContentFragment {
+public class ContentFragmentImpl extends AbstractComponentImpl implements ContentFragment {
 
     /**
      * The resource type of the component associated with this Sling model.
@@ -82,20 +90,20 @@ public class ContentFragmentImpl implements ContentFragment {
     @ScriptVariable
     private Resource resource;
 
-    @ValueMapValue(name = ContentFragment.PN_PATH,
-                   injectionStrategy = InjectionStrategy.OPTIONAL)
+    @ValueMapValue(name = ContentFragment.PN_PATH, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String fragmentPath;
 
-    @ValueMapValue(name = ContentFragment.PN_ELEMENT_NAMES,
-                   injectionStrategy = InjectionStrategy.OPTIONAL)
+    @ValueMapValue(name = ContentFragment.PN_ELEMENT_NAMES, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String[] elementNames;
 
-    @ValueMapValue(name = ContentFragment.PN_VARIATION_NAME,
-                   injectionStrategy = InjectionStrategy.OPTIONAL)
+    @ValueMapValue(name = ContentFragment.PN_VARIATION_NAME, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String variationName;
 
-    @ValueMapValue(name = ContentFragment.PN_DISPLAY_MODE,
-                   injectionStrategy = InjectionStrategy.OPTIONAL)
+    @ValueMapValue(name = ContentFragment.PN_DISPLAY_MODE, injectionStrategy = InjectionStrategy.OPTIONAL)
+    @Nullable
     private String displayMode;
 
     private DAMContentFragment damContentFragment = new EmptyContentFragment();
@@ -126,6 +134,12 @@ public class ContentFragmentImpl implements ContentFragment {
     @Override
     public String getType() {
         return damContentFragment.getType();
+    }
+
+    @NotNull
+    @Override
+    public String getName() {
+        return damContentFragment.getName();
     }
 
     @NotNull
@@ -173,7 +187,7 @@ public class ContentFragmentImpl implements ContentFragment {
     @NotNull
     @Override
     public Map<String, ? extends ComponentExporter> getExportedItems() {
-        return ContentFragmentUtils.getComponentExporters(resource.listChildren(), modelFactory, slingHttpServletRequest);
+        return ContentFragmentUtils.getComponentExporters(resource.listChildren(), modelFactory, slingHttpServletRequest, resource);
     }
 
     @NotNull
@@ -210,6 +224,24 @@ public class ContentFragmentImpl implements ContentFragment {
         return content.split("(?=(<p>|<h1>|<h2>|<h3>|<h4>|<h5>|<h6>))");
     }
 
+    @Override
+    @NotNull
+    protected ComponentData getComponentData() {
+        return DataLayerBuilder.extending(super.getComponentData()).asContentFragment()
+            .withTitle(this::getTitle)
+            .withElementsData(() -> {
+                List<ContentFragmentData.ElementData> elementsData = new ArrayList<>();
+                Optional.ofNullable(this.getElements())
+                    .map(elements -> {
+                        for (DAMContentFragment.DAMContentElement contentElement : elements) {
+                            elementsData.add(new ContentFragmentDataImpl.ElementDataImpl(contentElement));
+                        }
+                        return Optional.empty();
+                    });
+                return elementsData.toArray(new ContentFragmentData.ElementData[0]);
+            })
+            .build();
+    }
 
     /**
      * Empty placeholder content fragment.
@@ -228,6 +260,11 @@ public class ContentFragmentImpl implements ContentFragment {
         @Override
         public @Nullable String getType() {
             return null;
+        }
+
+        @Override
+        public @NotNull String getName() {
+            return "";
         }
 
         @Override

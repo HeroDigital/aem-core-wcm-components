@@ -15,8 +15,9 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v2;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.models.annotations.Exporter;
@@ -26,10 +27,12 @@ import org.jetbrains.annotations.NotNull;
 
 import com.adobe.cq.export.json.ComponentExporter;
 import com.adobe.cq.export.json.ExporterConstants;
+import com.adobe.cq.wcm.core.components.internal.link.LinkHandler;
 import com.adobe.cq.wcm.core.components.internal.models.v1.PageListItemImpl;
 import com.adobe.cq.wcm.core.components.models.List;
 import com.adobe.cq.wcm.core.components.models.ListItem;
 import com.day.cq.wcm.api.Page;
+import com.day.cq.wcm.api.components.Component;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Model(adaptables = SlingHttpServletRequest.class, adapters = {List.class, ComponentExporter.class}, resourceType = ListImpl.RESOURCE_TYPE)
@@ -39,28 +42,28 @@ public class ListImpl extends com.adobe.cq.wcm.core.components.internal.models.v
     protected static final String RESOURCE_TYPE = "core/wcm/components/list/v2/list";
 
     @Self
-    private SlingHttpServletRequest request;
+    private LinkHandler linkHandler;
+
+    /**
+     * Result list.
+     */
+    private Collection<ListItem> listItems;
 
     @Override
     @NotNull
     @JsonProperty("items")
     public Collection<ListItem> getListItems() {
-        Collection<ListItem> listItems = new ArrayList<>();
-        Collection<Page> pages = getPages();
-        for (Page page : pages) {
-            if (page != null) {
-                listItems.add(new PageListItemImpl(request, page));
-            }
+        if (this.listItems == null) {
+            this.listItems = super.getItems().stream()
+                .filter(Objects::nonNull)
+                .map(page -> newPageListItem(linkHandler, page, getId(), component))
+                .collect(Collectors.toList());
         }
-        return listItems;
+        return this.listItems;
     }
 
-    private Collection<Page> getPages() {
-        if (listItems == null) {
-            Source listType = getListType();
-            populateListItems(listType);
-        }
-        return listItems;
+    protected ListItem newPageListItem(@NotNull LinkHandler linkHandler, @NotNull Page page, String parentId, Component component) {
+        return new PageListItemImpl(linkHandler, page, parentId, component);
     }
 
 }

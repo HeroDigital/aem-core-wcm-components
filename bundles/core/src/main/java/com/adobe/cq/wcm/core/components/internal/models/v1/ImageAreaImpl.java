@@ -15,23 +15,59 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.cq.wcm.core.components.internal.models.v1;
 
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+
+import com.adobe.cq.wcm.core.components.commons.link.Link;
 import com.adobe.cq.wcm.core.components.models.ImageArea;
 
+/**
+ * Image area implementation.
+ */
 public class ImageAreaImpl implements ImageArea {
 
-    private String shape;
-    private String coordinates;
-    private String relativeCoordinates;
-    private String href;
-    private String target;
-    private String alt;
+    /**
+     * The shape of the area.
+     */
+    private final String shape;
 
-    public ImageAreaImpl(String shape, String coordinates, String relativeCoordinates, String href, String target, String alt) {
+    /**
+     * The coordinates of the area.
+     */
+    private final String coordinates;
+
+    /**
+     * a relative unit representation of the {@code coords}.
+     */
+    private final String relativeCoordinates;
+
+    protected Link link;
+
+    /**
+     * The image area anchor {@code alt} value
+     */
+    private final String alt;
+
+    /**
+     * Construct an Image Area.
+     *
+     * @param shape The shape of the area.
+     * @param coordinates The coordinates of the area.
+     * @param relativeCoordinates The relative unit representation of the {@code coords}.
+     * @param link The area link
+     * @param alt The image area anchor alt text.
+     */
+    public ImageAreaImpl(final String shape,
+                         final String coordinates,
+                         final String relativeCoordinates,
+                         final @NotNull Link link,
+                         final String alt) {
         this.shape = shape;
         this.coordinates = coordinates;
         this.relativeCoordinates = relativeCoordinates;
-        this.href = href;
-        this.target = target;
+        this.link = link;
         this.alt = alt;
     }
 
@@ -52,16 +88,24 @@ public class ImageAreaImpl implements ImageArea {
 
     @Override
     public String getHref() {
-        return href;
+        // fallback for old method for keeping backward compatibility
+        return StringUtils.defaultString(link.getURL());
     }
 
     @Override
     public String getTarget() {
-        return target;
+        // fallback for old method for keeping backward compatibility
+        String target = null;
+        Map<String, String> attrs = link.getHtmlAttributes();
+        if (attrs != null) {
+            target = attrs.get("target");
+        }
+        return StringUtils.defaultString(target);
     }
 
     @Override
     public String getAlt() {
         return alt;
     }
+
 }

@@ -20,7 +20,7 @@
     var IS = "image";
 
     var EMPTY_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-    var LAZY_THRESHOLD = 0;
+    var LAZY_THRESHOLD_DEFAULT = 0;
     var SRC_URI_TEMPLATE_WIDTH_VAR = "{.width}";
 
     var selectors = {
@@ -74,6 +74,38 @@
             }
         },
         /**
+         * Indicates image is DynamicMedia image.
+         *
+         * @memberof Image
+         * @type {Boolean}
+         * @default false
+         */
+        "dmimage": {
+            "default": false,
+            "transform": function(value) {
+                return !(value === null || typeof value === "undefined");
+            }
+        },
+        /**
+         * The lazy threshold.
+         * This is the number of pixels, in advance of becoming visible, when an lazy-loading image should begin
+         * to load.
+         *
+         * @memberof Image
+         * @type {Number}
+         * @default 0
+         */
+        "lazythreshold": {
+            "default": 0,
+            "transform": function(value) {
+                var val =  parseInt(value);
+                if (isNaN(val)) {
+                    return LAZY_THRESHOLD_DEFAULT;
+                }
+                return val;
+            }
+        },
+        /**
          * The image source.
          *
          * Can be a simple image source, or a URI template representation that
@@ -84,6 +116,9 @@
          * @type {String}
          */
         "src": {
+            "transform": function(value) {
+                return decodeURIComponent(value);
+            }
         }
     };
 
@@ -117,12 +152,49 @@
     function Image(config) {
         var that = this;
 
+        var smartCrops = {};
+
         function init(config) {
             // prevents multiple initialization
             config.element.removeAttribute("data-" + NS + "-is");
 
             setupProperties(config.options);
             cacheElements(config.element);
+            // check image is DM asset; if true try to make req=set
+            if (config.options.src && config.options.hasOwnProperty("dmimage") && (config.options["smartcroprendition"] === "SmartCrop:Auto")) {
+                var request = new XMLHttpRequest();
+                var url = decodeURIComponent(config.options.src).split(SRC_URI_TEMPLATE_WIDTH_VAR)[0] + "?req=set,json";
+
+
+                request.open("GET", url, false);
+                request.onload = function() {
+                    if (request.status >= 200 && request.status < 400) {
+                        // success status
+                        var responseText = request.responseText;
+                        var rePayload = new RegExp(/^(?:\/\*jsonp\*\/)?\s*([^()]+)\(([\s\S]+),\s*"[0-9]*"\);?$/gmi);
+                        var rePayloadJSON = new RegExp(/^{[\s\S]*}$/gmi);
+                        var resPayload = rePayload.exec(responseText);
+                        var payload;
+                        if (resPayload) {
+                            var payloadStr = resPayload[2];
+                            if (rePayloadJSON.test(payloadStr)) {
+                                payload = JSON.parse(payloadStr);
+                            }
+
+                        }
+                        // check "relation" - only in case of smartcrop preset
+                        if (payload && payload.set.relation && payload.set.relation.length > 0) {
+                            for (var i = 0; i < payload.set.relation.length; i++) {
+                                smartCrops[parseInt(payload.set.relation[i].userdata.SmartCropWidth)] =
+                                    ":" + payload.set.relation[i].userdata.SmartCropDef;
+                            }
+                        }
+                    } else {
+                        // error status
+                    }
+                };
+                request.send();
+            }
 
             if (!that._elements.noscript) {
                 return;
@@ -140,31 +212,51 @@
                 that._elements.image.addEventListener("load", onLoad);
             }
 
-            window.addEventListener("scroll", that.update);
             window.addEventListener("resize", onWindowResize);
-            window.addEventListener("update", that.update);
+            ["focus", "click", "load", "transitionend", "animationend", "scroll"].forEach(function(name) {
+                document.addEventListener(name, that.update);
+            });
+
             that._elements.image.addEventListener("cmp-image-redraw", that.update);
             that.update();
         }
 
         function loadImage() {
-            var hasWidths = that._properties.widths && that._properties.widths.length > 0;
-            var replacement = hasWidths ? "." + getOptimalWidth() : "";
+            var hasWidths = (that._properties.widths && that._properties.widths.length > 0) || Object.keys(smartCrops).length > 0;
+            var replacement;
+            if (Object.keys(smartCrops).length > 0) {
+                var optimalWidth = getOptimalWidth(Object.keys(smartCrops));
+                replacement = smartCrops[optimalWidth];
+            } else {
+                replacement = hasWidths ? (that._properties.dmimage ? "" : ".") + getOptimalWidth(that._properties.widths) : "";
+            }
             var url = that._properties.src.replace(SRC_URI_TEMPLATE_WIDTH_VAR, replacement);
+            var imgSrcAttribute = that._elements.image.getAttribute("src");
 
-            if (that._elements.image.getAttribute("src") !== url) {
-                that._elements.image.setAttribute("src", url);
-                if (!hasWidths) {
-                    window.removeEventListener("scroll", that.update);
+            if (url !== imgSrcAttribute) {
+                if (imgSrcAttribute === null || imgSrcAttribute === EMPTY_PIXEL) {
+                    that._elements.image.setAttribute("src", url);
+                } else {
+                    var urlTemplateParts = that._properties.src.split(SRC_URI_TEMPLATE_WIDTH_VAR);
+                    // check if image src was dynamically swapped meanwhile (e.g. by Target)
+                    var isImageRefSame = imgSrcAttribute.startsWith(urlTemplateParts[0]);
+                    if (isImageRefSame && urlTemplateParts.length > 1) {
+                        isImageRefSame = imgSrcAttribute.endsWith(urlTemplateParts[urlTemplateParts.length - 1]);
+                    }
+                    if (isImageRefSame) {
+                        that._elements.image.setAttribute("src", url);
+                        if (!hasWidths) {
+                            window.removeEventListener("scroll", that.update);
+                        }
+                    }
                 }
             }
-
             if (that._lazyLoaderShowing) {
                 that._elements.image.addEventListener("load", removeLazyLoader);
             }
         }
 
-        function getOptimalWidth() {
+        function getOptimalWidth(widths) {
             var container = that._elements.self;
             var containerWidth = container.clientWidth;
             while (containerWidth === 0 && container.parentNode) {
@@ -172,14 +264,14 @@
                 containerWidth = container.clientWidth;
             }
             var optimalWidth = containerWidth * devicePixelRatio;
-            var len = that._properties.widths.length;
+            var len = widths.length;
             var key = 0;
 
-            while ((key < len - 1) && (that._properties.widths[key] < optimalWidth)) {
+            while ((key < len - 1) && (widths[key] < optimalWidth)) {
                 key++;
             }
 
-            return that._properties.widths[key].toString();
+            return widths[key].toString();
         }
 
         function addLazyLoader() {
@@ -250,7 +342,7 @@
             var et = that._elements.container.getBoundingClientRect().top + wt;
             var eb = et + that._elements.container.clientHeight;
 
-            return eb >= wt - LAZY_THRESHOLD && et <= wb + LAZY_THRESHOLD;
+            return eb >= wt - that._properties.lazythreshold && et <= wb + that._properties.lazythreshold;
         }
 
         function resizeAreas() {

@@ -4,14 +4,16 @@
     <cq:dropTargets jcr:primaryType="nt:unstructured">
         <image
             jcr:primaryType="cq:DropTargetConfig"
-            accept="[image/gif,image/jpeg,image/png,image/tiff,image/svg+xml]"
+            accept="[image/gif,image/jpeg,image/png,image/tiff,image/svg\\+xml]"
             groups="[media]"
             propertyName="./fileReference">
             <parameters
                 jcr:primaryType="nt:unstructured"
                 imageCrop=""
                 imageMap=""
-                imageRotate=""/>
+                imageRotate=""
+                dmPresetType=""
+                smartCropRendition=""/>
         </image>
     </cq:dropTargets>
     <cq:inplaceEditing

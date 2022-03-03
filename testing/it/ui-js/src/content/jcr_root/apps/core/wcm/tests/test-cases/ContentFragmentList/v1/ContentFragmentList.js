@@ -94,12 +94,13 @@
                 var $contentfragments = h.find(selectors.contentfragment.self);
                 var $contentfragmenttitles = h.find(selectors.contentfragment.title);
                 var $contentfragmentelements = h.find(selectors.contentfragment.elements.element.title);
+                var titlesMatch = false;
+                for (var i = 0; i < $contentfragmenttitles.length; i++) {
+                    titlesMatch = $contentfragmenttitles[i] === "Image Fragment" || "Text Fragment" || "Carousel Fragment";
+                }
                 return $contentfragmentlist.size() === 1 &&
                     $contentfragments.size() === 3 &&
-                    $contentfragmentelements.size() === 12 &&
-                    $contentfragmenttitles[0].innerHTML === "Carousel Fragment" &&
-                    $contentfragmenttitles[1].innerHTML === "Image Fragment" &&
-                    $contentfragmenttitles[2].innerHTML === "Text Fragment";
+                    $contentfragmentelements.size() === 12 && titlesMatch;
             });
     };
 
@@ -112,10 +113,7 @@
     contentfragmentlist.tcSetTagNames = function(tcExecuteBeforeTest, tcExecuteAfterTest, selectors) {
         return new h.TestCase("Set the tag names", {
             execBefore: tcExecuteBeforeTest,
-            execAfter: tcExecuteAfterTest,
-            metadata: {
-                ignoreOn63: true
-            }
+            execAfter: tcExecuteAfterTest
         })
         // open the edit dialog
             .execTestCase(c.tcOpenConfigureDialog("cmpPath"))
@@ -135,11 +133,13 @@
                 var $contentfragments = h.find(selectors.contentfragment.self);
                 var $contentfragmenttitles = h.find(selectors.contentfragment.title);
                 var $contentfragmentelements = h.find(selectors.contentfragment.elements.element.title);
+                var titlesMatch = false;
+                for (var i = 0; i < $contentfragmenttitles.length; i++) {
+                    titlesMatch = $contentfragmenttitles[i] === "Image Fragment" || "Text Fragment";
+                }
                 return $contentfragmentlist.size() === 1 &&
                     $contentfragments.size() === 2 &&
-                    $contentfragmentelements.size() === 8 &&
-                    $contentfragmenttitles[0].innerHTML === "Image Fragment" &&
-                    $contentfragmenttitles[1].innerHTML === "Text Fragment";
+                    $contentfragmentelements.size() === 8 && titlesMatch;
             });
     };
 
@@ -183,12 +183,13 @@
                 var $contentfragments = h.find(selectors.contentfragment.self);
                 var $contentfragmenttitles = h.find(selectors.contentfragment.title);
                 var $contentfragmentelements = h.find(selectors.contentfragment.elements.element.title);
+                var titlesMatch = false;
+                for (var i = 0; i < $contentfragmenttitles.length; i++) {
+                    titlesMatch = $contentfragmenttitles[i] === "Image Fragment" || "Text Fragment" || "Carousel Fragment";
+                }
                 return $contentfragmentlist.size() === 1 &&
                     $contentfragments.size() === 3 &&
-                    $contentfragmentelements.size() === 6 &&
-                    $contentfragmenttitles[0].innerHTML === "Carousel Fragment" &&
-                    $contentfragmenttitles[1].innerHTML === "Image Fragment" &&
-                    $contentfragmenttitles[2].innerHTML === "Text Fragment";
+                    $contentfragmentelements.size() === 6 && titlesMatch;
             });
     };
 
